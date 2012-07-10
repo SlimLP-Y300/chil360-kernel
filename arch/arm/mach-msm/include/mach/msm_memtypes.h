@@ -66,4 +66,7 @@ struct reserve_info {
 
 extern struct reserve_info *reserve_info;
 
+int __init dt_scan_for_memory_reserve(unsigned long node, const char *uname,
+					int depth, void *data);
+
 #endif
