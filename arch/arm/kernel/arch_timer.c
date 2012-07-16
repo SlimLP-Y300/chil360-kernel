@@ -22,11 +22,12 @@
 #include <linux/of_address.h>
 #include <linux/io.h>
 #include <linux/irq.h>
-#include <linux/sched_clock.h>
+#include <linux/export.h>
 
 #include <asm/cputype.h>
 #include <asm/localtimer.h>
 #include <asm/arch_timer.h>
+#include <asm/sched_clock.h>
 #include <asm/hardware/gic.h>
 #include <asm/system_info.h>
 
@@ -315,9 +316,15 @@ static inline cycle_t counter_get_cntvct_cp15(void)
 	return ((cycle_t) cvalh << 32) | cvall;
 }
 
-static cycle_t arch_counter_read(struct clocksource *cs)
+cycle_t arch_counter_get_cntpct(void)
 {
 	return arch_specific_timer->get_cntpct();
+}
+EXPORT_SYMBOL(arch_counter_get_cntpct);
+
+static cycle_t arch_counter_read(struct clocksource *cs)
+{
+	return arch_counter_get_cntpct();
 }
 
 #ifdef ARCH_HAS_READ_CURRENT_TIMER
