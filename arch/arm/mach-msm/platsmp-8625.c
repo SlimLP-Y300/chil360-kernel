@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,9 +35,9 @@
  * control for which core is the next to come out of the secondary
  * boot "holding pen"
  */
-int pen_release = -1;
+volatile int pen_release = -1;
 
-static bool cold_boot_done;
+static DEFINE_PER_CPU(bool, cold_boot_done);
 
 static uint32_t *msm8625_boot_vector;
 static void __iomem *reset_core1_base;
@@ -111,10 +111,10 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	write_pen_release(-1);
 
 	/* clear the IPC1(SPI-8) pending SPI */
-	if (power_collapsed) {
+	if (per_cpu(power_collapsed, cpu)) {
 		raise_clear_spi(1, false);
 		clear_pending_spi(MSM8625_INT_ACSR_MP_CORE_IPC1);
-		power_collapsed = 0;
+		per_cpu(power_collapsed, cpu) = 0;
 	}
 
 	/*
@@ -172,12 +172,12 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 
 	preset_lpj = loops_per_jiffy;
 
-	if (cold_boot_done == false) {
+	if (per_cpu(cold_boot_done, cpu) == false) {
 		if (msm8625_release_secondary()) {
 			pr_err("Failed to release secondary core\n");
 			return -ENODEV;
 		}
-		cold_boot_done = true;
+		per_cpu(cold_boot_done, cpu) = true;
 	}
 
 	/*
@@ -204,7 +204,7 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 * needs to be brought out by raising an SPI.
 	 */
 
-	if (power_collapsed) {
+	if (per_cpu(power_collapsed, cpu)) {
 		core1_gic_configure_and_raise();
 		raise_clear_spi(1, true);
 	} else {

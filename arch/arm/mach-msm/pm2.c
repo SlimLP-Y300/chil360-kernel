@@ -3,7 +3,7 @@
  * MSM Power Management Routines
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2012 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -75,8 +75,9 @@ enum {
 	MSM_PM_DEBUG_HOTPLUG = BIT(7),
 };
 
+DEFINE_PER_CPU(int, power_collapsed);
+
 static int msm_pm_debug_mask;
-int power_collapsed;
 module_param_named(
 	debug_mask, msm_pm_debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP
 );
@@ -561,7 +562,7 @@ static void msm_pm_config_hw_after_power_up(void)
 		__raw_writel(0, APPS_PWRDOWN);
 		mb();
 
-		if (power_collapsed) {
+		if (per_cpu(power_collapsed, 1)) {
 			/*
 			 * enable the SCU while coming out of power
 			 * collapse.
@@ -980,6 +981,7 @@ static int msm_pm_power_collapse
 	 * path by reading the MPA5_GDFS_CNT_VAL register.
 	 */
 	if (cpu_is_msm8625()) {
+		int cpu;
 		/*
 		 * on system reset, default value of MPA5_GDFS_CNT_VAL
 		 * is = 0x0, later modem reprogram this value to
@@ -991,7 +993,11 @@ static int msm_pm_power_collapse
 		 */
 		val = __raw_readl(MSM_CFG_CTL_BASE + 0x38);
 		if (val != 0x00030002)
-			power_collapsed = 1;
+			for_each_possible_cpu(cpu) {
+				if (!cpu)
+					continue;
+				per_cpu(power_collapsed, cpu) = 1;
+			}
 		else
 			modem_early_exit = 1;
 	}
