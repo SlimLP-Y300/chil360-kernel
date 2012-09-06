@@ -2467,7 +2467,6 @@ void msm_rpcrouter_xprt_notify(struct rpcrouter_xprt *xprt, unsigned event)
 {
 	struct rpcrouter_xprt_info *xprt_info;
 	struct rpcrouter_xprt_work *xprt_work;
-	/* merge msm kernel 3.4 patch 902de08f6670ddba147609e8b9f895dadf2275d9 */
 	unsigned long flags;
 
 	/* Workqueue is created in init function which works for all existing
@@ -2500,7 +2499,6 @@ void msm_rpcrouter_xprt_notify(struct rpcrouter_xprt *xprt, unsigned event)
 
 	xprt_info = xprt->priv;
 	if (xprt_info) {
-		/* merge msm kernel 3.4 patch 902de08f6670ddba147609e8b9f895dadf2275d9 */
 		spin_lock_irqsave(&xprt_info->lock, flags);
 		/* Check read_avail even for OPEN event to handle missed
 		   DATA events while processing the OPEN event*/
