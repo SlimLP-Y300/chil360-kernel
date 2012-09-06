@@ -120,6 +120,7 @@ struct rmnet_private
 	struct sk_buff *skb;
 	spinlock_t lock;
 	struct tasklet_struct tsklt;
+	struct tasklet_struct rx_tasklet;
 	u32 operation_mode;    /* IOCTL specified mode (protocol, QoS header) */
 	struct platform_driver pdrv;
 	struct completion complete;
@@ -283,7 +284,6 @@ static __be16 rmnet_ip_type_trans(struct sk_buff *skb, struct net_device *dev)
 }
 
 static void smd_net_data_handler(unsigned long arg);
-static DECLARE_TASKLET(smd_net_data_tasklet, smd_net_data_handler, 0);
 
 /* Called in soft-irq context */
 static void smd_net_data_handler(unsigned long arg)
@@ -306,8 +306,8 @@ static void smd_net_data_handler(unsigned long arg)
 			pr_err("[%s] rmnet_recv() cannot allocate skb\n",
 			       dev->name);
 			/* out of memory, reschedule a later attempt */
-			smd_net_data_tasklet.data = (unsigned long)dev;
-			tasklet_schedule(&smd_net_data_tasklet);
+			p->rx_tasklet.data = (unsigned long)dev;
+			tasklet_schedule(&p->rx_tasklet);
 			break;
 		} else {
 			skb->dev = dev;
@@ -475,8 +475,8 @@ static void smd_net_notify(void *_dev, unsigned event)
 
 		if (smd_read_avail(p->ch) &&
 			(smd_read_avail(p->ch) >= smd_cur_packet_size(p->ch))) {
-			smd_net_data_tasklet.data = (unsigned long) _dev;
-			tasklet_schedule(&smd_net_data_tasklet);
+			p->rx_tasklet.data = (unsigned long) _dev;
+			tasklet_schedule(&p->rx_tasklet);
 		}
 		break;
 
@@ -527,16 +527,10 @@ static int __rmnet_open(struct net_device *dev)
 static int __rmnet_close(struct net_device *dev)
 {
 	struct rmnet_private *p = netdev_priv(dev);
-	int rc;
-	unsigned long flags;
 
-	if (p->ch) {
-		rc = smd_close(p->ch);
-		spin_lock_irqsave(&p->lock, flags);
-		p->ch = 0;
-		spin_unlock_irqrestore(&p->lock, flags);
-		return rc;
-	} else
+	if (p->ch)
+		return 0;
+	else
 		return -EBADF;
 }
 
@@ -555,12 +549,9 @@ static int rmnet_open(struct net_device *dev)
 
 static int rmnet_stop(struct net_device *dev)
 {
-	struct rmnet_private *p = netdev_priv(dev);
-
 	DBG0("[%s] rmnet_stop()\n", dev->name);
 
 	netif_stop_queue(dev);
-	tasklet_kill(&p->tsklt);
 
 	/* TODO: unload modem safely,
 	   currently, this causes unnecessary unloads */
@@ -822,6 +813,8 @@ static int __init rmnet_init(void)
 		p->skb = NULL;
 		spin_lock_init(&p->lock);
 		tasklet_init(&p->tsklt, _rmnet_resume_flow,
+				(unsigned long)dev);
+		tasklet_init(&p->rx_tasklet, smd_net_data_handler,
 				(unsigned long)dev);
 		wake_lock_init(&p->wake_lock, WAKE_LOCK_SUSPEND, ch_name[n]);
 #ifdef CONFIG_MSM_RMNET_DEBUG
