@@ -1341,7 +1341,7 @@ static int audqcelp_in_open(struct inode *inode, struct file *file)
 		goto output_buff_get_flags_error;
 	}
 
-	audio->map_v_read = ion_map_kernel(client, handle, ionflag);
+	audio->map_v_read = ion_map_kernel(client, handle);
 	if (IS_ERR(audio->map_v_read)) {
 		MM_ERR("could not map read buffers,freeing instance 0x%08x\n",
 				(int)audio);
@@ -1386,8 +1386,7 @@ static int audqcelp_in_open(struct inode *inode, struct file *file)
 			goto input_buff_get_flags_error;
 		}
 
-		audio->map_v_write = ion_map_kernel(client,
-			handle, ionflag);
+		audio->map_v_write = ion_map_kernel(client, handle);
 		if (IS_ERR(audio->map_v_write)) {
 			MM_ERR("could not map write buffers\n");
 			rc = -ENOMEM;
