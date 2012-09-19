@@ -90,6 +90,7 @@ enum danymic_gamma_mode {
 #define MSMFB_MDP_PP _IOWR(MSMFB_IOCTL_MAGIC, 156, struct msmfb_mdp_pp)
 #define MSMFB_OVERLAY_VSYNC_CTRL _IOW(MSMFB_IOCTL_MAGIC, 160, unsigned int)
 #define MSMFB_VSYNC_CTRL  _IOW(MSMFB_IOCTL_MAGIC, 161, unsigned int)
+#define MSMFB_BUFFER_SYNC  _IOW(MSMFB_IOCTL_MAGIC, 162, struct mdp_buf_sync)
 #define MSMFB_METADATA_SET  _IOW(MSMFB_IOCTL_MAGIC, 162, struct msmfb_metadata)
 #define MSMFB_OVERLAY_COMMIT      _IOW(MSMFB_IOCTL_MAGIC, 163, unsigned int)
 
@@ -524,6 +525,14 @@ struct mdp_page_protection {
 	uint32_t page_protection;
 };
 
+#define MDP_MAX_FENCE_FD	4
+
+struct mdp_buf_sync {
+	uint32_t flags;
+	uint32_t acq_fen_fd_cnt;
+	int *acq_fen_fd;
+	int *rel_fen_fd;
+};
 
 #ifdef CONFIG_FB_AUTO_CABC
 enum cabc_mode {
