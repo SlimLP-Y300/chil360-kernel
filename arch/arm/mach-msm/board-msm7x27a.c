@@ -1159,15 +1159,12 @@ static void __init msm7x27a_reserve(void)
 }
 
 
-/* 此段代码被全部移到static void __init msm7x27a_reserve(void)函数前面 */
+/* 锟剿段达拷锟诫被全锟斤拷锟狡碉拷static void __init msm7x27a_reserve(void)锟斤拷锟斤拷前锟斤拷 */
 
 static void __init msm8625_reserve(void)
 {
 	msm7x27a_reserve();
-
-/* 此段代码被全部移到的实现被移到static void __init msm7x27a_reserve(void)函数里面实现 */
-
-	memblock_remove(MSM8625_SECONDARY_PHYS, SZ_8);
+	memblock_remove(MSM8625_CPU_PHYS, SZ_8);
 	memblock_remove(MSM8625_WARM_BOOT_PHYS, SZ_32);
 	memblock_remove(MSM8625_NON_CACHE_MEM, SZ_2K);
 }
