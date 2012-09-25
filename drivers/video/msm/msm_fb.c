@@ -3924,29 +3924,33 @@ static int msmfb_handle_buf_sync_ioctl(struct msm_fb_data_type *mfd,
 	mfd->cur_rel_fence = sync_fence_create("mdp-fence",
 			mfd->cur_rel_sync_pt);
 	if (mfd->cur_rel_fence == NULL) {
+		sync_pt_free(mfd->cur_rel_sync_pt);
+		mfd->cur_rel_sync_pt = NULL;
 		pr_err("%s: cannot create fence", __func__);
 		ret = -ENOMEM;
-		goto buf_sync_err_2;
+		goto buf_sync_err_1;
 	}
 	/* create fd */
 	mfd->cur_rel_fen_fd = get_unused_fd_flags(0);
+	if (mfd->cur_rel_fen_fd < 0) {
+		pr_err("%s: get_unused_fd_flags failed", __func__);
+		ret  = -EIO;
+		goto buf_sync_err_2;
+	}
 	sync_fence_install(mfd->cur_rel_fence, mfd->cur_rel_fen_fd);
 	ret = copy_to_user(buf_sync->rel_fen_fd,
 		&mfd->cur_rel_fen_fd, sizeof(int));
 	if (ret) {
 		pr_err("%s:copy_to_user failed", __func__);
-		goto buf_sync_err_3;
+		goto buf_sync_err_2;
 	}
 	mutex_unlock(&mfd->sync_mutex);
 	return ret;
-buf_sync_err_3:
+buf_sync_err_2:
 	sync_fence_put(mfd->cur_rel_fence);
 	put_unused_fd(mfd->cur_rel_fen_fd);
 	mfd->cur_rel_fence = NULL;
 	mfd->cur_rel_fen_fd = 0;
-buf_sync_err_2:
-	sync_pt_free(mfd->cur_rel_sync_pt);
-	mfd->cur_rel_sync_pt = NULL;
 buf_sync_err_1:
 	for (i = 0; i < fence_cnt; i++)
 		sync_fence_put(mfd->acq_fen[i]);
@@ -3999,6 +4003,11 @@ static int buf_fence_process(struct msm_fb_data_type *mfd,
 	}
 	/* create fd */
 	mfd->cur_rel_fen_fd = get_unused_fd_flags(0);
+	if (mfd->cur_rel_fen_fd < 0) {
+		pr_err("%s: get_unused_fd_flags failed", __func__);
+		ret = -EIO;
+		goto buf_fence_err_2;
+	}
 	sync_fence_install(mfd->cur_rel_fence, mfd->cur_rel_fen_fd);
 	buf_fence->rel_fen_fd[0] = mfd->cur_rel_fen_fd;
 	/* Only one released fd for now, -1 indicates an end */
@@ -4006,6 +4015,10 @@ static int buf_fence_process(struct msm_fb_data_type *mfd,
 	mfd->acq_fen_cnt = buf_fence->acq_fen_fd_cnt;
 	mutex_unlock(&mfd->sync_mutex);
 	return ret;
+buf_fence_err_2:
+	sync_fence_put(mfd->cur_rel_fence);
+	mfd->cur_rel_fence = NULL;
+	mfd->cur_rel_fen_fd = 0;
 buf_fence_err_1:
 	for (i = 0; i < fence_cnt; i++)
 		sync_fence_put(mfd->acq_fen[i]);
