@@ -320,7 +320,8 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	MIPI_OUTP(MIPI_DSI_BASE + 0xA8, 0);		
 #endif
 
-	ret = panel_next_on(pdev);
+	if (mfd->op_enable)
+		ret = panel_next_on(pdev);
 
 	mipi_dsi_op_mode_config(mipi->mode);
 
