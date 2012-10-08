@@ -167,7 +167,7 @@ int msm_fb_set_dynamic_gamma(struct msm_fb_data_type *mfd, enum danymic_gamma_mo
 #define MAX_BACKLIGHT_BRIGHTNESS 255
 
 /* 200 ms for time out */
-#define WAIT_FENCE_TIMEOUT 200
+#define WAIT_FENCE_TIMEOUT 100
 
 int msm_fb_debugfs_file_index;
 struct dentry *msm_fb_debugfs_root;
@@ -1975,7 +1975,7 @@ static int msm_fb_open(struct fb_info *info, int user)
 
 		if (unblank) {
 			if (msm_fb_blank_sub(FB_BLANK_UNBLANK,
-				info, mfd->op_enable)) {
+				info, TRUE)) {
 				MSM_FB_ERR("%s: can't turn on display!\n",
 					__func__);
 				return -EPERM;
@@ -2000,7 +2000,7 @@ static int msm_fb_release(struct fb_info *info, int user)
 
 	mfd->ref_cnt--;
 
-	if (!mfd->ref_cnt) {
+	if ((!mfd->ref_cnt) && (mfd->op_enable)) {
 		if ((ret =
 		     msm_fb_blank_sub(FB_BLANK_POWERDOWN, info,
 				      mfd->op_enable)) != 0) {
