@@ -21,7 +21,6 @@
 #include <mach/proc_comm.h>
 
 #include "devices-msm7x2xa.h"
-#include "smd_rpcrouter.h"
 
 
 #define RESTART_REASON_BOOT_BASE        0x77665500
