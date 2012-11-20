@@ -545,20 +545,13 @@ static void rpcrouter_register_board_dev(struct rr_server *server)
 			D("%s: registering device %x\n",
 			  __func__, board_info->dev->prog);
 			list_del(&board_info->list);
-			/* fix the BUG "BUG: scheduling while atomic:" */
-#ifdef CONFIG_HUAWEI_KERNEL
 			spin_unlock_irqrestore(&rpc_board_dev_list_lock, flags);
-#endif
 			rc = platform_device_register(&board_info->dev->pdev);
-			/* fix the BUG "BUG: scheduling while atomic:" */
-#ifdef CONFIG_HUAWEI_KERNEL
-			spin_lock_irqsave(&rpc_board_dev_list_lock, flags);
-#endif
 			if (rc)
 				pr_err("%s: board dev register failed %d\n",
 				       __func__, rc);
 			kfree(board_info);
-			break;
+			return;
 		}
 	}
 	spin_unlock_irqrestore(&rpc_board_dev_list_lock, flags);
