@@ -844,6 +844,9 @@ _slumber(struct kgsl_device *device)
 				kgsl_pwrstate_to_str(device->state));
 		break;
 	}
+
+	kgsl_mmu_disable_clk_on_ts(&device->mmu, 0, false);
+
 	return 0;
 }
 
