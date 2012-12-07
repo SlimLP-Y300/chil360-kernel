@@ -346,6 +346,8 @@ int mdp_lcdc_on(struct platform_device *pdev)
 		ret = panel_next_on(pdev);
 	}
 #endif
+        mdp_histogram_ctrl_all(TRUE);
+
 	return ret;
 }
 
