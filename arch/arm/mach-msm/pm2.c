@@ -1343,7 +1343,7 @@ void arch_idle(void)
 	unsigned int cpu;
 	int64_t t1;
 	static DEFINE_PER_CPU(int64_t, t2);
-	int exit_stat;
+	volatile int exit_stat;
 
 	if (!atomic_read(&msm_pm_init_done))
 		return;
