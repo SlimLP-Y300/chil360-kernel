@@ -194,6 +194,7 @@ struct msm_fb_panel_data {
 	int (*on) (struct platform_device *pdev);
 	int (*off) (struct platform_device *pdev);
 	int (*late_init) (struct platform_device *pdev);
+	int (*early_off) (struct platform_device *pdev);
 	int (*power_ctrl) (boolean enable);
 #ifdef CONFIG_FB_DYNAMIC_GAMMA
 	int (*set_dynamic_gamma) (enum danymic_gamma_mode gamma_mode,struct msm_fb_data_type *mfd);
@@ -220,6 +221,7 @@ int panel_next_off(struct platform_device *pdev);
 int panel_next_fps_level_change(struct platform_device *pdev,
 					u32 fps_level);
 int panel_next_late_init(struct platform_device *pdev);
+int panel_next_early_off(struct platform_device *pdev);
 
 int lcdc_device_register(struct msm_panel_info *pinfo);
 
