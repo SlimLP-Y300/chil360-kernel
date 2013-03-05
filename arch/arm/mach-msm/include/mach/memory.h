@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/include/mach/memory.h
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -80,13 +80,8 @@ unsigned long allocate_contiguous_ebi_nomap(unsigned long, unsigned long);
 void clean_and_invalidate_caches(unsigned long, unsigned long, unsigned long);
 void clean_caches(unsigned long, unsigned long, unsigned long);
 void invalidate_caches(unsigned long, unsigned long, unsigned long);
-int platform_physical_remove_pages(u64, u64);
-int platform_physical_active_pages(u64, u64);
-int platform_physical_low_power_pages(u64, u64);
-unsigned long get_ddr_size(void);
 int msm_get_memory_type_from_name(const char *memtype_name);
-
-extern int (*change_memory_power)(u64, u64, int);
+unsigned long get_ddr_size(void);
 
 #if defined(CONFIG_ARCH_MSM_ARM11) || defined(CONFIG_ARCH_MSM_CORTEX_A5)
 void write_to_strongly_ordered_memory(void);
