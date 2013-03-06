@@ -2,6 +2,7 @@
 #define __ASM_ARM_CMPXCHG_H
 
 #include <linux/irqflags.h>
+#include <linux/prefetch.h>
 #include <asm/barrier.h>
 
 #if defined(CONFIG_CPU_SA1100) || defined(CONFIG_CPU_SA110)
@@ -35,6 +36,7 @@ static inline unsigned long __xchg(unsigned long x, volatile void *ptr, int size
 #endif
 
 	smp_mb();
+	prefetchw((const void *)ptr);
 
 	switch (size) {
 #if __LINUX_ARM_ARCH__ >= 6
@@ -137,6 +139,8 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 				      unsigned long new, int size)
 {
 	unsigned long oldval, res;
+
+	prefetchw((const void *)ptr);
 
 	switch (size) {
 #ifndef CONFIG_CPU_V6	/* min ARCH >= ARMv6K */
@@ -244,6 +248,8 @@ static inline unsigned long long __cmpxchg64(volatile void *ptr,
 	register unsigned long long __old asm("r2") = old;
 	register unsigned long long __new asm("r4") = new;
 	unsigned long res;
+
+	prefetchw((const void *)ptr);
 
 	do {
 		asm volatile(
