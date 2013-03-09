@@ -28,7 +28,7 @@
 #include <linux/fs.h>
 #include <linux/list.h>
 #include <linux/uaccess.h>
-#include <linux/android_pmem.h>
+
 #include <linux/poll.h>
 #include <media/msm_camera.h>
 #include <mach/camera.h>
@@ -322,15 +322,6 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 			goto out1;
 		ion_phys(client_for_ion, region->handle,
 			&paddr, (size_t *)&len);
-#else
-	rc = get_pmem_file(info->fd, &paddr, &kvstart, &len, &file);
-	if (rc < 0) {
-		pr_err("%s: get_pmem_file fd %d error %d\n",
-			__func__,
-			info->fd, rc);
-		goto out1;
-	}
-	region->file = file;
 #endif
 	if (!info->len)
 		info->len = len;
@@ -367,8 +358,6 @@ static int msm_pmem_table_add(struct hlist_head *ptype,
 out2:
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	ion_free(client_for_ion, region->handle);
-#else
-	put_pmem_file(region->file);
 #endif
 out1:
 	kfree(region);
@@ -652,8 +641,6 @@ static int __msm_pmem_table_del(struct msm_sync *sync,
 				hlist_del(node);
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 				ion_free(client_for_ion, region->handle);
-#else
-				put_pmem_file(region->file);
 #endif
 				kfree(region);
 				CDBG("%s: type %d, vaddr  0x%p\n",
@@ -676,8 +663,6 @@ static int __msm_pmem_table_del(struct msm_sync *sync,
 				hlist_del(node);
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 				ion_free(client_for_ion, region->handle);
-#else
-				put_pmem_file(region->file);
 #endif
 				kfree(region);
 				CDBG("%s: type %d, vaddr  0x%p\n",
@@ -699,8 +684,6 @@ static int __msm_pmem_table_del(struct msm_sync *sync,
 				hlist_del(node);
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 				ion_free(client_for_ion, region->handle);
-#else
-				put_pmem_file(region->file);
 #endif
 				kfree(region);
 				CDBG("%s: type %d, vaddr  0x%p\n",
@@ -3098,8 +3081,6 @@ static int __msm_release(struct msm_sync *sync)
 			hlist_del(hnode);
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 				ion_free(client_for_ion, region->handle);
-#else
-			put_pmem_file(region->file);
 #endif
 			kfree(region);
 		}
@@ -3109,8 +3090,6 @@ static int __msm_release(struct msm_sync *sync)
 			hlist_del(hnode);
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 				ion_free(client_for_ion, region->handle);
-#else
-			put_pmem_file(region->file);
 #endif
 			kfree(region);
 		}
