@@ -161,8 +161,8 @@ int msm_fb_set_dynamic_gamma(struct msm_fb_data_type *mfd, enum danymic_gamma_mo
 #define MSM_FB_MAX_DBGFS 1024
 #define MAX_BACKLIGHT_BRIGHTNESS 255
 
-#define WAIT_FENCE_FIRST_TIMEOUT MSEC_PER_SEC
-#define WAIT_FENCE_FINAL_TIMEOUT 10 * MSEC_PER_SEC
+#define WAIT_FENCE_FIRST_TIMEOUT (3 * MSEC_PER_SEC)
+#define WAIT_FENCE_FINAL_TIMEOUT (10 * MSEC_PER_SEC)
 /* Display op timeout should be greater than total timeout */
 #define WAIT_DISP_OP_TIMEOUT (WAIT_FENCE_FIRST_TIMEOUT +\
         WAIT_FENCE_FINAL_TIMEOUT) * MDP_MAX_FENCE_FD
