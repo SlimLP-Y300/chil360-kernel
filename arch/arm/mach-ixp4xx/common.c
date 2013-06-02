@@ -37,7 +37,6 @@
 #include <asm/pgtable.h>
 #include <asm/page.h>
 #include <asm/irq.h>
-#include <asm/sched_clock.h>
 #include <asm/system_misc.h>
 
 #include <asm/mach/map.h>
