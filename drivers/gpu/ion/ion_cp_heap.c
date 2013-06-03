@@ -2,7 +2,7 @@
  * drivers/gpu/ion/ion_cp_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -15,11 +15,11 @@
  *
  */
 #include <linux/spinlock.h>
-
+#include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/genalloc.h>
 #include <linux/io.h>
-#include <linux/msm_ion.h>
+#include <linux/ion.h>
 #include <linux/mm.h>
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
@@ -27,6 +27,7 @@
 #include <linux/memory_alloc.h>
 #include <linux/seq_file.h>
 #include <linux/iommu.h>
+#include <linux/dma-mapping.h>
 
 #include <asm/mach/map.h>
 
@@ -82,8 +83,8 @@ struct ion_cp_heap {
 	unsigned int heap_protected;
 	unsigned long allocated_bytes;
 	unsigned long total_size;
-	int (*request_region)(void *);
-	int (*release_region)(void *);
+	int (*heap_request_region)(void *);
+	int (*heap_release_region)(void *);
 	void *bus_id;
 	unsigned long kmap_cached_count;
 	unsigned long kmap_uncached_count;
@@ -94,6 +95,10 @@ struct ion_cp_heap {
 	int iommu_2x_map_domain;
 	unsigned int has_outer_cache;
 	atomic_t protect_cnt;
+	void *cpu_addr;
+	size_t heap_size;
+	dma_addr_t handle;
+	int cma;
 };
 
 enum {
@@ -109,6 +114,68 @@ static int ion_cp_unprotect_mem(unsigned int phy_base, unsigned int size,
 				unsigned int permission_type, int version,
 				void *data);
 
+static int allocate_heap_memory(struct ion_heap *heap)
+{
+	struct device *dev = heap->priv;
+	struct ion_cp_heap *cp_heap =
+		container_of(heap, struct ion_cp_heap, heap);
+	int ret;
+	int tries = 0;
+
+
+	if (cp_heap->cpu_addr)
+		return 0;
+
+	while (!cp_heap->cpu_addr && (++tries < 500)) {
+		cp_heap->cpu_addr = dma_alloc_writecombine(dev,
+							cp_heap->heap_size,
+							&(cp_heap->handle),
+							0);
+		if (!cp_heap->cpu_addr)
+			msleep(20);
+	}
+
+	if (!cp_heap->cpu_addr)
+		goto out;
+
+	cp_heap->base = cp_heap->handle;
+
+	cp_heap->pool = gen_pool_create(12, -1);
+	if (!cp_heap->pool)
+		goto out_free;
+
+	ret = gen_pool_add(cp_heap->pool, cp_heap->base,
+				cp_heap->heap_size, -1);
+	if (ret < 0)
+		goto out_pool;
+
+	return 0;
+
+out_pool:
+	gen_pool_destroy(cp_heap->pool);
+out_free:
+	dma_free_coherent(dev, cp_heap->heap_size, cp_heap->cpu_addr,
+				cp_heap->handle);
+out:
+	return ION_CP_ALLOCATE_FAIL;
+}
+
+static void free_heap_memory(struct ion_heap *heap)
+{
+	struct device *dev = heap->priv;
+	struct ion_cp_heap *cp_heap =
+		container_of(heap, struct ion_cp_heap, heap);
+
+	/* release memory */
+	dma_free_coherent(dev, cp_heap->heap_size, cp_heap->cpu_addr,
+				cp_heap->handle);
+	gen_pool_destroy(cp_heap->pool);
+	cp_heap->pool = NULL;
+	cp_heap->cpu_addr = 0;
+}
+
+
+
 /**
  * Get the total number of kernel mappings.
  * Must be called with heap->lock locked.
@@ -117,6 +184,29 @@ static unsigned long ion_cp_get_total_kmap_count(
 					const struct ion_cp_heap *cp_heap)
 {
 	return cp_heap->kmap_cached_count + cp_heap->kmap_uncached_count;
+}
+
+static int ion_on_first_alloc(struct ion_heap *heap)
+{
+	struct ion_cp_heap *cp_heap =
+		container_of(heap, struct ion_cp_heap, heap);
+	int ret_value;
+
+	if (cp_heap->cma) {
+		ret_value = allocate_heap_memory(heap);
+		if (ret_value)
+			return 1;
+	}
+	return 0;
+}
+
+static void ion_on_last_free(struct ion_heap *heap)
+{
+	struct ion_cp_heap *cp_heap =
+		container_of(heap, struct ion_cp_heap, heap);
+
+	if (cp_heap->cma)
+		free_heap_memory(heap);
 }
 
 /**
@@ -131,12 +221,19 @@ static int ion_cp_protect(struct ion_heap *heap, int version, void *data)
 
 	if (atomic_inc_return(&cp_heap->protect_cnt) == 1) {
 		/* Make sure we are in C state when the heap is protected. */
+		if (!cp_heap->allocated_bytes)
+			if (ion_on_first_alloc(heap))
+				goto out;
+
 		ret_value = ion_cp_protect_mem(cp_heap->secure_base,
 				cp_heap->secure_size, cp_heap->permission_type,
 				version, data);
 		if (ret_value) {
 			pr_err("Failed to protect memory for heap %s - "
 				"error code: %d\n", heap->name, ret_value);
+
+			if (!cp_heap->allocated_bytes)
+				ion_on_last_free(heap);
 
 			atomic_dec(&cp_heap->protect_cnt);
 		} else {
@@ -145,10 +242,10 @@ static int ion_cp_protect(struct ion_heap *heap, int version, void *data)
 				heap->name, cp_heap->base);
 		}
 	}
-
+out:
 	pr_debug("%s: protect count is %d\n", __func__,
 		atomic_read(&cp_heap->protect_cnt));
-	BUG_ON(atomic_read(&cp_heap->protect_cnt) < 0);
+	WARN_ON(atomic_read(&cp_heap->protect_cnt) < 0);
 	return ret_value;
 }
 
@@ -172,11 +269,14 @@ static void ion_cp_unprotect(struct ion_heap *heap, int version, void *data)
 			cp_heap->heap_protected = HEAP_NOT_PROTECTED;
 			pr_debug("Un-protected heap %s @ 0x%x\n", heap->name,
 				(unsigned int) cp_heap->base);
+
+			if (!cp_heap->allocated_bytes)
+				ion_on_last_free(heap);
 		}
 	}
 	pr_debug("%s: protect count is %d\n", __func__,
 		atomic_read(&cp_heap->protect_cnt));
-	BUG_ON(atomic_read(&cp_heap->protect_cnt) < 0);
+	WARN_ON(atomic_read(&cp_heap->protect_cnt) < 0);
 }
 
 ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
@@ -208,6 +308,16 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 		return ION_CP_ALLOCATE_FAIL;
 	}
 
+	/*
+	 * if this is the first reusable allocation, transition
+	 * the heap
+	 */
+	if (!cp_heap->allocated_bytes)
+		if (ion_on_first_alloc(heap)) {
+			mutex_unlock(&cp_heap->lock);
+			return ION_RESERVED_ALLOCATE_FAIL;
+		}
+
 	cp_heap->allocated_bytes += size;
 	mutex_unlock(&cp_heap->lock);
 
@@ -225,7 +335,9 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 				__func__, heap->name,
 				cp_heap->total_size -
 				cp_heap->allocated_bytes, size);
-
+		if (!cp_heap->allocated_bytes &&
+			cp_heap->heap_protected == HEAP_NOT_PROTECTED)
+			ion_on_last_free(heap);
 		mutex_unlock(&cp_heap->lock);
 
 		return ION_CP_ALLOCATE_FAIL;
@@ -269,6 +381,10 @@ void ion_cp_free(struct ion_heap *heap, ion_phys_addr_t addr,
 
 	mutex_lock(&cp_heap->lock);
 	cp_heap->allocated_bytes -= size;
+
+	if (!cp_heap->allocated_bytes &&
+		cp_heap->heap_protected == HEAP_NOT_PROTECTED)
+		ion_on_last_free(heap);
 
 	/* Unmap everything if we previously mapped the whole heap at once. */
 	if (!cp_heap->allocated_bytes) {
@@ -363,8 +479,10 @@ static int ion_cp_request_region(struct ion_cp_heap *cp_heap)
 {
 	int ret_value = 0;
 	if ((cp_heap->umap_count + ion_cp_get_total_kmap_count(cp_heap)) == 0)
-		if (cp_heap->request_region)
-			ret_value = cp_heap->request_region(cp_heap->bus_id);
+		if (cp_heap->heap_request_region)
+			ret_value = cp_heap->heap_request_region(
+					cp_heap->bus_id);
+
 	return ret_value;
 }
 
@@ -375,8 +493,9 @@ static int ion_cp_release_region(struct ion_cp_heap *cp_heap)
 {
 	int ret_value = 0;
 	if ((cp_heap->umap_count + ion_cp_get_total_kmap_count(cp_heap)) == 0)
-		if (cp_heap->release_region)
-			ret_value = cp_heap->release_region(cp_heap->bus_id);
+		if (cp_heap->heap_release_region)
+			ret_value = cp_heap->heap_release_region(
+					cp_heap->bus_id);
 	return ret_value;
 }
 
@@ -385,6 +504,7 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer)
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
 	void *ret_value = NULL;
+	unsigned long start_phys = cp_heap->base;
 
 	mutex_lock(&cp_heap->lock);
 	if ((cp_heap->heap_protected == HEAP_NOT_PROTECTED) ||
@@ -396,12 +516,17 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer)
 			return NULL;
 		}
 
-		if (ION_IS_CACHED(buffer->flags))
-			ret_value = ioremap_cached(buffer->priv_phys,
+		if (cp_heap->cma) {
+			ret_value = cp_heap->cpu_addr +
+					(buffer->priv_phys - start_phys);
+		} else {
+			if (ION_IS_CACHED(buffer->flags))
+				ret_value = ioremap_cached(buffer->priv_phys,
+							   buffer->size);
+			else
+				ret_value = ioremap(buffer->priv_phys,
 						    buffer->size);
-		else
-			ret_value = ioremap(buffer->priv_phys,
-					    buffer->size);
+		}
 
 		if (!ret_value) {
 			ion_cp_release_region(cp_heap);
@@ -412,6 +537,7 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer)
 				++cp_heap->kmap_uncached_count;
 		}
 	}
+
 	mutex_unlock(&cp_heap->lock);
 	return ret_value;
 }
@@ -422,7 +548,8 @@ void ion_cp_heap_unmap_kernel(struct ion_heap *heap,
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
 
-	__arm_iounmap(buffer->vaddr);
+	if (!cp_heap->cma)
+		__arm_iounmap(buffer->vaddr);
 
 	buffer->vaddr = NULL;
 
@@ -835,14 +962,6 @@ struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *heap_data)
 
 	mutex_init(&cp_heap->lock);
 
-	cp_heap->pool = gen_pool_create(12, -1);
-	if (!cp_heap->pool)
-		goto free_heap;
-
-	cp_heap->base = heap_data->base;
-	ret = gen_pool_add(cp_heap->pool, cp_heap->base, heap_data->size, -1);
-	if (ret < 0)
-		goto destroy_pool;
 
 	cp_heap->allocated_bytes = 0;
 	cp_heap->umap_count = 0;
@@ -852,9 +971,11 @@ struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *heap_data)
 	cp_heap->heap.ops = &cp_heap_ops;
 	cp_heap->heap.type = ION_HEAP_TYPE_CP;
 	cp_heap->heap_protected = HEAP_NOT_PROTECTED;
-	cp_heap->secure_base = cp_heap->base;
+	cp_heap->secure_base = heap_data->base;
 	cp_heap->secure_size = heap_data->size;
 	cp_heap->has_outer_cache = heap_data->has_outer_cache;
+	cp_heap->heap_size = heap_data->size;
+
 	atomic_set(&cp_heap->protect_cnt, 0);
 	if (heap_data->extra_data) {
 		struct ion_cp_heap_pdata *extra_data =
@@ -867,16 +988,34 @@ struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *heap_data)
 		if (extra_data->setup_region)
 			cp_heap->bus_id = extra_data->setup_region();
 		if (extra_data->request_region)
-			cp_heap->request_region = extra_data->request_region;
+			cp_heap->heap_request_region =
+				extra_data->request_region;
 		if (extra_data->release_region)
-			cp_heap->release_region = extra_data->release_region;
+			cp_heap->heap_release_region =
+				extra_data->release_region;
 		cp_heap->iommu_map_all =
 				extra_data->iommu_map_all;
 		cp_heap->iommu_2x_map_domain =
 				extra_data->iommu_2x_map_domain;
-
+		cp_heap->cma = extra_data->is_cma;
 	}
 
+	if (cp_heap->cma) {
+		cp_heap->pool = NULL;
+		cp_heap->cpu_addr = 0;
+		cp_heap->heap.priv = heap_data->priv;
+	} else {
+		cp_heap->pool = gen_pool_create(12, -1);
+		if (!cp_heap->pool)
+			goto free_heap;
+
+		cp_heap->base = heap_data->base;
+		ret = gen_pool_add(cp_heap->pool, cp_heap->base,
+					heap_data->size, -1);
+		if (ret < 0)
+			goto destroy_pool;
+
+	}
 	return &cp_heap->heap;
 
 destroy_pool:
