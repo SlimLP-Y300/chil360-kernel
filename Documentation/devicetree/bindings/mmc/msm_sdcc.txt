@@ -16,10 +16,8 @@ Required properties:
 Optional Properties:
 	- cell-index - defines slot ID.
 	- qcom,sdcc-bus-width - defines the bus I/O width that controller supports.
-	- qcom,sdcc-wp-gpio - defines write protect switch gpio.
-	- qcom,sdcc-wp-polarity - specifies the polarity of wp switch.
-	- qcom,sdcc-cd-gpio - defines card detect gpio number.
-	- qcom,sdcc-cd-polarity - specifies the polarity of cd gpio.
+	- wp-gpios - specify GPIO for write protect switch detection.
+	- cd-gpios - specify GPIO for card detection.
 	- qcom,sdcc-nonremovable - specifies whether the card in slot is
 				hot pluggable or hard wired.
 	- qcom,sdcc-disable_cmd23 - disable sending CMD23 to card when controller can't support it.
@@ -34,6 +32,15 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 	specified in pairs (min, max), units uV.
 	- qcom,sdcc-<supply>-current_level - specifies load levels for supply in lpm or
 	high power mode (hpm). Should be specified in pairs (lpm, hpm), units uA.
+
+	- gpios - specifies gpios assigned for sdcc slot.
+	- qcom,sdcc-gpio-names -  a list of strings that map in order to the list of gpios
+	A slot has either gpios or dedicated tlmm pins as represented below.
+	- qcom,sdcc-pad-pull-on - Active pull configuration for sdc tlmm pins
+	- qcom,sdcc-pad-pull-off - Suspend pull configuration for sdc tlmm pins.
+	- qcom,sdcc-pad-drv-on - Active drive strength configuration for sdc tlmm pins.
+	- qcom,sdcc-pad-drv-off - Suspend drive strength configuration for sdc tlmm pins.
+	Tlmm pins are specified as <clk cmd data>
 
 Example:
 

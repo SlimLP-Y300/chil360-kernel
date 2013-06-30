@@ -96,6 +96,9 @@ struct mmc_command {
  */
 
 	unsigned int		cmd_timeout_ms;	/* in milliseconds */
+	bool			bkops_busy;
+	/* Set this flag only for commands which can be HPIed */
+	bool			ignore_timeout;
 
 	struct mmc_data		*data;		/* data segment associated with cmd */
 	struct mmc_request	*mrq;		/* associated request */
@@ -121,6 +124,7 @@ struct mmc_data {
 	unsigned int		sg_len;		/* size of scatter list */
 	struct scatterlist	*sg;		/* I/O scatter list */
 	s32			host_cookie;	/* host private data */
+	bool			fault_injected; /* fault injected */
 };
 
 struct mmc_request {
@@ -137,9 +141,9 @@ struct mmc_host;
 struct mmc_card;
 struct mmc_async_req;
 
-extern int mmc_interrupt_bkops(struct mmc_card *);
+extern int mmc_stop_bkops(struct mmc_card *);
 extern int mmc_read_bkops_status(struct mmc_card *);
-extern int mmc_is_exception_event(struct mmc_card *, unsigned int);
+extern bool mmc_card_is_prog_state(struct mmc_card *);
 extern struct mmc_async_req *mmc_start_req(struct mmc_host *,
 					   struct mmc_async_req *, int *);
 extern int mmc_interrupt_hpi(struct mmc_card *);
@@ -148,7 +152,15 @@ extern int mmc_wait_for_cmd(struct mmc_host *, struct mmc_command *, int);
 extern int mmc_app_cmd(struct mmc_host *, struct mmc_card *);
 extern int mmc_wait_for_app_cmd(struct mmc_host *, struct mmc_card *,
 	struct mmc_command *, int);
+extern void mmc_start_bkops(struct mmc_card *card, bool from_exception);
+extern void mmc_start_delayed_bkops(struct mmc_card *card);
+extern void mmc_start_idle_time_bkops(struct work_struct *work);
+extern void mmc_bkops_completion_polling(struct work_struct *work);
+extern int __mmc_switch(struct mmc_card *, u8, u8, u8, unsigned int, bool,
+			bool);
 extern int mmc_switch(struct mmc_card *, u8, u8, u8, unsigned int);
+extern int mmc_switch_ignore_timeout(struct mmc_card *, u8, u8, u8,
+				     unsigned int);
 extern int mmc_send_ext_csd(struct mmc_card *card, u8 *ext_csd);
 
 #define MMC_ERASE_ARG		0x00000000
@@ -168,10 +180,8 @@ extern int mmc_can_trim(struct mmc_card *card);
 extern int mmc_can_discard(struct mmc_card *card);
 extern int mmc_can_sanitize(struct mmc_card *card);
 extern int mmc_can_secure_erase_trim(struct mmc_card *card);
-extern int mmc_can_poweroff_notify(const struct mmc_card *card);
 extern int mmc_erase_group_aligned(struct mmc_card *card, unsigned int from,
 				   unsigned int nr);
-extern void mmc_start_bkops(struct mmc_card *card);
 extern unsigned int mmc_calc_max_discard(struct mmc_card *card);
 
 extern int mmc_set_blocklen(struct mmc_card *card, unsigned int blocklen);
