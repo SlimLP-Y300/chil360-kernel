@@ -38,7 +38,7 @@
 #ifdef CONFIG_HUAWEI_EVALUATE_POWER_CONSUMPTION 
 #include <mach/msm_battery.h>
 #endif
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <mach/cpuidle.h>
 DEFINE_MUTEX(ctrl_cmd_lock);
 
