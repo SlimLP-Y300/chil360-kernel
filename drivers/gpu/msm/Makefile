@@ -47,5 +47,3 @@ msm_z180-objs = $(msm_z180-y)
 obj-$(CONFIG_MSM_KGSL) += msm_kgsl_core.o
 obj-$(CONFIG_MSM_KGSL) += msm_adreno.o
 obj-$(CONFIG_MSM_KGSL_2D) += msm_z180.o
-
-CFLAGS_adreno.o += -Wframe-larger-than=2048

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,7 +70,7 @@ const unsigned int a3xx_registers[] = {
 const unsigned int a3xx_registers_count = ARRAY_SIZE(a3xx_registers) / 2;
 
 /* Removed the following HLSQ register ranges from being read during
- * fault tolerance since reading the registers may cause the device to hang:
+ * recovery since reading the registers may cause the device to hang:
  */
 const unsigned int a3xx_hlsq_registers[] = {
 	0x0e00, 0x0e05, 0x0e0c, 0x0e0c, 0x0e22, 0x0e23,
@@ -2576,11 +2576,33 @@ static void a3xx_cp_callback(struct adreno_device *adreno_dev, int irq)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 
-	/* Wake up everybody waiting for the interrupt */
+	if (irq == A3XX_INT_CP_RB_INT) {
+		unsigned int context_id;
+		kgsl_sharedmem_readl(&device->memstore, &context_id,
+				KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+					current_context));
+		if (context_id < KGSL_MEMSTORE_MAX) {
+			/* reset per context ts_cmp_enable */
+			kgsl_sharedmem_writel(&device->memstore,
+					KGSL_MEMSTORE_OFFSET(context_id,
+						ts_cmp_enable), 0);
+			/* Always reset global timestamp ts_cmp_enable */
+			kgsl_sharedmem_writel(&device->memstore,
+					KGSL_MEMSTORE_OFFSET(
+						KGSL_MEMSTORE_GLOBAL,
+						ts_cmp_enable), 0);
+			wmb();
+		}
+		KGSL_CMD_WARN(device, "ringbuffer rb interrupt\n");
+	}
+
 	wake_up_interruptible_all(&device->wait_queue);
 
 	/* Schedule work to free mem and issue ibs */
 	queue_work(device->work_queue, &device->ts_expired_ws);
+
+	atomic_notifier_call_chain(&device->ts_notifier_list,
+				   device->id, NULL);
 }
 
 #define A3XX_IRQ_CALLBACK(_c) { .func = _c }
@@ -2670,15 +2692,6 @@ static void a3xx_irq_control(struct adreno_device *adreno_dev, int state)
 		adreno_regwrite(device, A3XX_RBBM_INT_0_MASK, A3XX_INT_MASK);
 	else
 		adreno_regwrite(device, A3XX_RBBM_INT_0_MASK, 0);
-}
-
-static unsigned int a3xx_irq_pending(struct adreno_device *adreno_dev)
-{
-	unsigned int status;
-
-	adreno_regread(&adreno_dev->dev, A3XX_RBBM_INT_0_STATUS, &status);
-
-	return (status & A3XX_INT_MASK) ? 1 : 0;
 }
 
 static unsigned int a3xx_busy_cycles(struct adreno_device *adreno_dev)
@@ -2841,22 +2854,12 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	adreno_regwrite(device, A3XX_RBBM_PERFCTR_CTL, 0x01);
 
 	/*
-	 * Set SP perfcounter 5 to count SP_ALU_ACTIVE_CYCLES, it includes
-	 * all ALU instruction execution regardless precision or shader ID.
-	 * Set SP perfcounter 6 to count SP0_ICL1_MISSES, It counts
-	 * USP L1 instruction miss request.
-	 * Set SP perfcounter 7 to count SP_FS_FULL_ALU_INSTRUCTIONS, it
-	 * counts USP flow control instruction execution.
+	 * Set SP perfcounter 7 to count SP_FS_FULL_ALU_INSTRUCTIONS
 	 * we will use this to augment our hang detection
 	 */
-	if (adreno_dev->fast_hang_detect) {
-		adreno_regwrite(device, A3XX_SP_PERFCOUNTER5_SELECT,
-			SP_ALU_ACTIVE_CYCLES);
-		adreno_regwrite(device, A3XX_SP_PERFCOUNTER6_SELECT,
-			SP0_ICL1_MISSES);
-		adreno_regwrite(device, A3XX_SP_PERFCOUNTER7_SELECT,
-			SP_FS_CFLOW_INSTRUCTIONS);
-	}
+
+	adreno_regwrite(device, A3XX_SP_PERFCOUNTER7_SELECT,
+		SP_FS_FULL_ALU_INSTRUCTIONS);
 }
 
 /* Defined in adreno_a3xx_snapshot.c */
@@ -2875,7 +2878,6 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.rb_init = a3xx_rb_init,
 	.irq_control = a3xx_irq_control,
 	.irq_handler = a3xx_irq_handler,
-	.irq_pending = a3xx_irq_pending,
 	.busy_cycles = a3xx_busy_cycles,
 	.start = a3xx_start,
 	.snapshot = a3xx_snapshot,
