@@ -11,6 +11,13 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+v0.23
+* Add FRandom
+* BFQ I/O scheduler 7r2
+* V(R) I/O scheduler
+* FIOPS I/O scheduler
+* ZEN I/O scheduler
+
 v0.22
 * Simple I/O scheduler (default)
 * Dynamic FSync
