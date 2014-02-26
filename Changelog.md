@@ -11,6 +11,9 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+v0.22
+* Simple I/O scheduler (default)
+* Dynamic FSync
 
 v0.21
 * Lowered swappiness 60->45
