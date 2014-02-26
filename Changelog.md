@@ -11,6 +11,13 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+
+v0.21
+* Lowered swappiness 60->45
+* Add optimized AES and SHA1 routines
+* Add glibc memcopy and string
+* Disabled Gentle Fair Sleepers for better UI performance 
+
 v0.20
 * Patch kernel from 3.4.0 to 3.4.82
 
