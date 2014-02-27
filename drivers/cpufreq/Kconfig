@@ -96,15 +96,6 @@ config CPU_FREQ_DEFAULT_GOV_INTERACTIVE
 	  loading your cpufreq low-level hardware driver, using the
 	  'interactive' governor for latency-sensitive workloads.
 
-config CPU_FREQ_DEFAULT_GOV_INTERACTIVEX
-	bool "interactiveX"
-	select CPU_FREQ_GOV_INTERACTIVEX
-	help
-	  Use the CPUFreq governor 'interactiveX' as default. This allows
-	  you to get a full dynamic cpu frequency capable system by simply
-	  loading your cpufreq low-level hardware driver, using the
-	  'interactiveX' governor for latency-sensitive workloads.
-
 config CPU_FREQ_DEFAULT_GOV_LIONHEART
 	bool "lionheart"
 	select CPU_FREQ_GOV_LIONHEART
@@ -264,13 +255,6 @@ config CPU_FREQ_GOV_INTERACTIVE
 	  For details, take a look at linux/Documentation/cpu-freq.
 
 	  If in doubt, say N.
-
-config CPU_FREQ_GOV_INTERACTIVEX
-	tristate "'interactiveX' cpufreq policy governor"
-	help
-	  'interactiveX' - Modified version of interactive with sleep+wake code.
-
-	   If in doubt, say N.
 
 config CPU_FREQ_GOV_LIONHEART
 	tristate "'lionheart' cpufreq governor"
