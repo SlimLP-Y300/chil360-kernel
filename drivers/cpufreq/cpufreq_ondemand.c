@@ -126,8 +126,8 @@ static inline void dbs_timer_exit(struct cpu_dbs_info_s *dbs_info);
 static unsigned int dbs_enable;	/* number of CPUs using this policy */
 
 /*
- * dbs_mutex protects dbs_enable in governor start/stop.
- */
+ * dbs_mutex protects dbs_enable and dbs_info during start/stop.
+*/
 static DEFINE_MUTEX(dbs_mutex);
 
 static struct workqueue_struct *input_wq;
@@ -578,6 +578,8 @@ static ssize_t store_powersave_bias(struct kobject *a, struct attribute *b,
 				POWERSAVE_BIAS_MINLEVEL));
 
 	dbs_tuners_ins.powersave_bias = input;
+
+	mutex_lock(&dbs_mutex);
 	get_online_cpus();
 	if (!bypass) {
 		if (reenable_timer) {
@@ -645,6 +647,7 @@ skip_this_cpu_bypass:
 		}
 	}
 	put_online_cpus();
+	mutex_unlock(&dbs_mutex);
 
 	return count;
 }
