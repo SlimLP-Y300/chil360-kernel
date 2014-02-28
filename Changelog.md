@@ -11,6 +11,13 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+v0.25
+* Enable TCP congestion control algorthms with Westwood as default
+* CK3 Tweaks
+* Timer slack controller
+* Optimized SLUB
+* Other MM tweaks
+
 v0.24
 * Add CPU Govenors: Intellidemand v5, Hyper, Adaptive, Lulzactive, SmartassV2, Lionheart, OndemandX
 * Updates to Ondemand
