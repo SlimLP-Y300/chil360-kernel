@@ -15,6 +15,7 @@ v0.25
 * Enable TCP congestion control algorthms with Westwood as default
 * CK3 Tweaks
 * Timer slack controller
+* Dynamic dirty page writebacks
 * Optimized SLUB
 * Other MM tweaks
 
