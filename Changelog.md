@@ -11,6 +11,15 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+v0.26
+* ext4: speed up truncate/unlink by not using bforget() unless needed
+* block/partitions: optimize memory allocation in check_partition()
+* writeback: fix writeback cache thrashing
+* cpufreq: Optimize cpufreq_frequency_table_verify()
+* Power efficient work queue
+* ZSMALLOC  from 3.10
+* ZRAM from 3.10
+
 v0.25
 * Enable TCP congestion control algorthms with Westwood as default
 * CK3 Tweaks
