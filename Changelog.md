@@ -11,6 +11,12 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+v0.27
+* Move VFP init to an earlier boot stage
+* Add NEON accelerated XOR implementation
+* Add support for kernel mode NEON
+* Optimized ARM RWSEM algorithm
+
 v0.26
 * ext4: speed up truncate/unlink by not using bforget() unless needed
 * block/partitions: optimize memory allocation in check_partition()
