@@ -821,7 +821,16 @@ unsigned int get_mdp_pmem_size(void)
 			break;
 		case LCD_IS_WVGA:
 		case LCD_IS_FWVGA:
+#ifdef CONFIG_CHIL360_RAM_STOCK
 			mdp_pmem_size = 0x1C00000; //28M
+#elif defined(CONFIG_CHIL360_RAM_MEDIUM)
+			mdp_pmem_size = 0x1A00000; //26M
+#elif defined(CONFIG_CHIL360_RAM_HIGH)
+			mdp_pmem_size = 0x1400000; //20M
+#elif defined(CONFIG_CHIL360_RAM_EXTRA_HIGH)
+//			mdp_pmem_size = 0xB00000; //11M
+			mdp_pmem_size = 0x800000; //8mb
+#endif
 			break;
 		case LCD_IS_QHD:
 			mdp_pmem_size = 0x2300000; //35M

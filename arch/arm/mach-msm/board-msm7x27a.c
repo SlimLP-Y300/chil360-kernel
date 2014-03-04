@@ -257,7 +257,19 @@ static struct msm_i2c_platform_data msm_gsbi1_qup_i2c_pdata = {
 #define MSM_PMEM_MDP_SIZE       0x2300000
 #define MSM7x25A_MSM_PMEM_MDP_SIZE       0x1500000
 
-#define MSM_PMEM_ADSP_SIZE      0x1200000
+ // Chil360 RAM tweak
+#ifdef CONFIG_CHIL360_RAM_STOCK
+#define MSM_PMEM_ADSP_SIZE      0x1200000 // 18mb
+#elif defined(CONFIG_CHIL360_RAM_MEDIUM)
+#define MSM_PMEM_ADSP_SIZE      0xD00000 // 13mb
+#elif defined(CONFIG_CHIL360_RAM_EXTRA_HIGH)
+//#define MSM_PMEM_ADSP_SIZE	0x800000 // 8mb
+#define MSM_PMEM_ADSP_SIZE	0x400000 // 4mb
+#else
+#define MSM_PMEM_ADSP_SIZE      0xC00000 // 12mb
+#endif
+
+
 #define MSM_PMEM_ADSP_BIG_SIZE      0x1E00000
 #define MSM7x25A_MSM_PMEM_ADSP_SIZE      0xB91000
 #define CAMERA_ZSL_SIZE		(SZ_1M * 60)
