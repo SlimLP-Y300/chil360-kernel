@@ -11,6 +11,12 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+v0.28
+* Increased free RAM 404Mb
+* Set deadline as default I/O scheduler 
+* Tweak config to remove unneeded things: Ext2, Ext3, Highmem, RAM console
+* Optimize square root algorithm
+
 v0.27
 * Move VFP init to an earlier boot stage
 * Add NEON accelerated XOR implementation
