@@ -11,6 +11,11 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+v0.29
+* Frequency tables and UV (from CeXstel kernel)
+* Y300 Overclock to 1046.7 MHz (from CeXstel kernel)
+* More CPU Govenors: asswax, badass, dancedance, smartassh3, smartmax, wheatley (from CeXstel kernel)
+
 v0.28
 * Increased free RAM 404Mb
 * Set deadline as default I/O scheduler 
