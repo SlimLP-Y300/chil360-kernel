@@ -1758,6 +1758,12 @@ config MSM_CPU_FREQ_MIN
 
 endif # CPU_FREQ_MSM
 
+config CHIL360_OC
+  	bool "CHIL360 OC option for Y300"
+  	default n
+  	help
+    	  Unlock the overclock freq speed
+
 choice
 	prompt "Chil360 RAM Mapping"
 	default CHIL360_RAM_STOCK

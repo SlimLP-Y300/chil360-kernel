@@ -91,6 +91,9 @@ static struct pll_config pll4_cfg_tbl[] = {
 	[3] = {  73, 0, 1 }, /* 1401.6 MHz */
 	[4] = {  60, 0, 1 }, /* 1152 MHz */
 	[5] = {  57, 1, 2 }, /* 1104 MHz */
+#ifdef CONFIG_CHIL360_OC
+        [6] = { 54, 1, 2 }, /* 1046.7 MHz */
+#endif
 };
 
 struct clock_state {
@@ -333,6 +336,9 @@ static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1008_2p0[] = {
         { 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
         { 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
         { 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
+#ifdef CONFIG_CHIL360_OC
+        { 1, 1046769, ACPU_PLL_4, 6, 0, 130846, 3, 5, 200000, &pll4_cfg_tbl[6]},
+#endif
         { 0 }
 };
 
@@ -347,6 +353,9 @@ static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1008_2p0[] = {
         { 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
         { 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
         { 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
+#ifdef CONFIG_CHIL360_OC
+        { 1, 1046769, ACPU_PLL_4, 6, 0, 130846, 3, 5, 200000, &pll4_cfg_tbl[6]},
+#endif
         { 0 }
 };
 
