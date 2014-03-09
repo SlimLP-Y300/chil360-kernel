@@ -250,33 +250,33 @@ static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1008[] = {
 
 /* 8625 PLL4 @ 1209MHz with GSM capable modem */
 static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1209[] = {
-	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
-	{ 0, 61440, ACPU_PLL_1, 1, 3,  7680, 3, 0, 61440 },
-	{ 0, 122880, ACPU_PLL_1, 1, 1,  15360, 3, 1, 61440 },
-	{ 1, 245760, ACPU_PLL_1, 1, 0, 30720, 3, 1, 61440 },
-	{ 0, 300000, ACPU_PLL_2, 2, 3, 37500, 3, 2, 122880 },
-	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
-	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
-	{ 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
-	{ 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
-	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
-	{ 1, 1209600, ACPU_PLL_4, 6, 0, 151200, 3, 6, 200000, &pll4_cfg_tbl[2]},
-	{ 0 }
+        { 1, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
+        { 1, 61440, ACPU_PLL_1, 1, 3, 7680, 3, 0, 61440 },
+        { 1, 122880, ACPU_PLL_1, 1, 1, 15360, 3, 1, 61440 },
+        { 1, 245760, ACPU_PLL_1, 1, 0, 30720, 3, 1, 61440 },
+        { 0, 300000, ACPU_PLL_2, 2, 3, 37500, 3, 2, 122880 },
+        { 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
+        { 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
+        { 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
+        { 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
+        { 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
+        { 1, 1209600, ACPU_PLL_4, 6, 0, 151200, 3, 6, 200000, &pll4_cfg_tbl[2]},
+        { 0 }
 };
 
 /* 8625 PLL4 @ 1209MHz with CDMA capable modem */
 static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1209[] = {
-	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 24576 },
-	{ 0, 65536, ACPU_PLL_1, 1, 3,  8192, 3, 1, 49152 },
-	{ 0, 98304, ACPU_PLL_1, 1, 1,  12288, 3, 1, 49152 },
-	{ 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 1, 98304 },
-	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
-	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
-	{ 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
-	{ 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
-	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
-	{ 1, 1209600, ACPU_PLL_4, 6, 0, 151200, 3, 6, 200000, &pll4_cfg_tbl[2]},
-	{ 0 }
+        { 1, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 24576 },
+        { 1, 65536, ACPU_PLL_1, 1, 3, 8192, 3, 1, 61440 },
+        { 1, 98304, ACPU_PLL_1, 1, 1, 12288, 3, 1, 61440 },
+        { 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 1, 98304 },
+        { 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
+        { 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
+        { 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
+        { 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
+        { 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
+        { 1, 1209600, ACPU_PLL_4, 6, 0, 151200, 3, 6, 200000, &pll4_cfg_tbl[2]},
+        { 0 }
 };
 
 /* 8625 PLL4 @ 1401.6MHz with GSM capable modem */
@@ -322,31 +322,32 @@ static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1401[] = {
 
 /* 8625 PLL4 @ 1008MHz with GSM capable modem */
 static struct clkctl_acpu_speed pll0_960_pll1_245_pll2_1200_pll4_1008_2p0[] = {
-	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
-	{ 0, 61440, ACPU_PLL_1, 1, 3,  7680, 3, 0, 61440 },
-	{ 0, 122880, ACPU_PLL_1, 1, 1,  15360, 3, 1, 61440 },
-	{ 1, 245760, ACPU_PLL_1, 1, 0, 30720, 3, 1, 61440 },
-	{ 0, 300000, ACPU_PLL_2, 2, 3, 37500, 3, 2, 122880 },
-	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
-	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
-	{ 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
-	{ 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
-	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
-	{ 0 }
+        { 1, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
+        { 1, 65536, ACPU_PLL_1, 1, 3, 8192, 3, 1, 61440 },
+        { 1, 98304, ACPU_PLL_1, 1, 1, 12288, 3, 1, 61440 },
+        { 0, 122880, ACPU_PLL_1, 1, 1, 15360, 3, 1, 61440 },
+        { 1, 245760, ACPU_PLL_1, 1, 0, 30720, 3, 1, 61440 },
+        { 0, 300000, ACPU_PLL_2, 2, 3, 37500, 3, 2, 122880 },
+        { 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
+        { 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
+        { 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
+        { 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
+        { 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
+        { 0 }
 };
 
 /* 8625 PLL4 @ 1008MHz with CDMA capable modem */
 static struct clkctl_acpu_speed pll0_960_pll1_196_pll2_1200_pll4_1008_2p0[] = {
-	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 24576 },
-	{ 0, 65536, ACPU_PLL_1, 1, 3,  8192, 3, 1, 49152 },
-	{ 0, 98304, ACPU_PLL_1, 1, 1,  12288, 3, 1, 49152 },
-	{ 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 1, 98304 },
-	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
-	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
-	{ 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
-	{ 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
-	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
-	{ 0 }
+        { 1, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 24576 },
+        { 1, 65536, ACPU_PLL_1, 1, 3, 8192, 3, 1, 61440 }, 
+        { 1, 98304, ACPU_PLL_1, 1, 1, 12288, 3, 1, 61440 }, // fixed
+        { 1, 196608, ACPU_PLL_1, 1, 0, 24576, 3, 1, 98304 },
+        { 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, 2, 122880 },
+        { 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, 3, 122880 },
+        { 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 4, 160000 },
+        { 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, 4, 160000, &pll4_cfg_tbl[0]},
+        { 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, 5, 200000, &pll4_cfg_tbl[1]},
+        { 0 }
 };
 
 /* 8625 PLL4 @ 1104MHz with GSM capable modem with v2.0 plan */
@@ -966,6 +967,41 @@ static void __devinit acpuclk_hw_init(void)
 
 	pr_info("ACPU running at %d KHz\n", speed->a11clk_khz);
 }
+
+#ifdef CONFIG_CPU_FREQ_VDD_LEVELS
+
+ssize_t acpuclk_get_vdd_levels_str(char *buf) {
+
+        int i, len = 0;
+
+        if (buf) {
+                mutex_lock(&drv_state.lock);
+//y300-100, for other devices you need change freq table...
+                for (i = 0; pll0_960_pll1_196_pll2_1200_pll4_1008_2p0[i].a11clk_khz; i++) {
+                        if (pll0_960_pll1_196_pll2_1200_pll4_1008_2p0[i].use_for_scaling)
+                        len += sprintf(buf + len, "%8u: %8d\n", pll0_960_pll1_196_pll2_1200_pll4_1008_2p0[i].a11clk_khz, pll0_960_pll1_196_pll2_1200_pll4_1008_2p0[i].vdd);
+                }
+
+                mutex_unlock(&drv_state.lock);
+        }
+        return len;
+}
+
+/* uv */
+void acpuclk_set_vdd(unsigned int khz, int vdd_uv) {
+        int i;
+        printk(KERN_ERR"acpuclk_set_vdd khz: %d, vdd_uv: %d\n", khz, vdd_uv);
+        mutex_lock(&drv_state.lock);
+//y300-100, for other devices you need change freq table...
+        for (i = 0; pll0_960_pll1_196_pll2_1200_pll4_1008_2p0[i].a11clk_khz; i++) {
+                if ( pll0_960_pll1_196_pll2_1200_pll4_1008_2p0[i].a11clk_khz == khz)
+                        pll0_960_pll1_196_pll2_1200_pll4_1008_2p0[i].vdd = vdd_uv;
+        }
+
+        mutex_unlock(&drv_state.lock);
+}
+#endif        /* CONFIG_CPU_FREQ_VDD_LEVELS */
+
 
 static unsigned long acpuclk_7627_get_rate(int cpu)
 {
