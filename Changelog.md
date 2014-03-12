@@ -11,6 +11,10 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+v0.30
+* Overclock GPU to 320 MHz (from CeXstel kernel)
+* Disable asswax, smartassh3, smartassV2 to fix audio interuption issue when locking/unlocking
+
 v0.29
 * Frequency tables and UV (from CeXstel kernel)
 * Y300 Overclock to 1046.7 MHz (from CeXstel kernel)
