@@ -11,6 +11,9 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+v0.31
+* Patch kernel from 3.4.82 to 3.4.83
+
 v0.30
 * Overclock GPU to 320 MHz (from CeXstel kernel)
 * Disable asswax, smartassh3, smartassV2 to fix audio interuption issue when locking/unlocking
