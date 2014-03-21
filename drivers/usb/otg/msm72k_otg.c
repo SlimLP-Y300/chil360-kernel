@@ -2465,6 +2465,7 @@ static ssize_t otg_mode_write(struct file *file, const char __user *buf,
 		set_bit(ID, &dev->inputs);
 		work = 1;
 	} else if (!memcmp(buf, "peripheral", 10)) {
+		dev->pdata->otg_mode = OTG_ID;
 		set_bit(B_SESS_VLD, &dev->inputs);
 		set_bit(ID, &dev->inputs);
 		work = 1;
