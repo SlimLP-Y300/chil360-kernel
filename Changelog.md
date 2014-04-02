@@ -11,6 +11,13 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+v0.32
+* Patch kernel from 3.4.83 to 3.4.85
+* Writeback patches
+* Optimize jbd2_journal_force_commit
+* fs/sync: Make sync() satisfy many requests with one invocation
+* Improve Asynchronous I/O latency
+
 v0.31
 * Patch kernel from 3.4.82 to 3.4.83
 
