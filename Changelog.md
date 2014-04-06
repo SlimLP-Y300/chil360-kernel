@@ -11,6 +11,12 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+v0.33
+* Patch kernel from 3.4.85 to 3.4.86
+* Add SIOPLUS I/O scheduler
+* Update OTG support
+* mm, oom: normalize oom scores to oom_score_adj scale only for userspace
+
 v0.32
 * Patch kernel from 3.4.83 to 3.4.85
 * Writeback patches
