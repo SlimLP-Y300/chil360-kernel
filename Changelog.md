@@ -11,10 +11,6 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
-v0.34
-* Patch kernel from 3.4.86 to 3.4.8
-* Interactive govenor patches
-
 v0.33
 * Patch kernel from 3.4.85 to 3.4.86
 * Add SIOPLUS I/O scheduler

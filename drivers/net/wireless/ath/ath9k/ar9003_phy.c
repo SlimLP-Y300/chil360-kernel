@@ -545,20 +545,33 @@ static void ar9003_hw_init_bb(struct ath_hw *ah,
 
 void ar9003_hw_set_chain_masks(struct ath_hw *ah, u8 rx, u8 tx)
 {
-	if (ah->caps.tx_chainmask == 5 || ah->caps.rx_chainmask == 5)
+	switch (rx) {
+	case 0x5:
 		REG_SET_BIT(ah, AR_PHY_ANALOG_SWAP,
 			    AR_PHY_SWAP_ALT_CHAIN);
-
-	REG_WRITE(ah, AR_PHY_RX_CHAINMASK, rx);
-	REG_WRITE(ah, AR_PHY_CAL_CHAINMASK, rx);
+	case 0x3:
+	case 0x1:
+	case 0x2:
+	case 0x7:
+		REG_WRITE(ah, AR_PHY_RX_CHAINMASK, rx);
+		REG_WRITE(ah, AR_PHY_CAL_CHAINMASK, rx);
+		break;
+	default:
+		break;
+	}
 
 	if ((ah->caps.hw_caps & ATH9K_HW_CAP_APM) && (tx == 0x7))
-		tx = 3;
+		REG_WRITE(ah, AR_SELFGEN_MASK, 0x3);
 	else if (AR_SREV_9462(ah))
 		/* xxx only when MCI support is enabled */
-		tx = 3;
+		REG_WRITE(ah, AR_SELFGEN_MASK, 0x3);
+	else
+		REG_WRITE(ah, AR_SELFGEN_MASK, tx);
 
-	REG_WRITE(ah, AR_SELFGEN_MASK, tx);
+	if (tx == 0x5) {
+		REG_SET_BIT(ah, AR_PHY_ANALOG_SWAP,
+			    AR_PHY_SWAP_ALT_CHAIN);
+	}
 }
 
 /*
