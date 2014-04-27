@@ -11,8 +11,13 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+v0.35
+* A number of patches to random & prandom
+* ext4: optimize test_root()
+* fs/block-dev.c:fix performance regression in O_DIRECT writes to md block devices
+
 v0.34
-* Patch kernel from 3.4.86 to 3.4.8
+* Patch kernel from 3.4.86 to 3.4.87
 * Interactive govenor patches
 
 v0.33
