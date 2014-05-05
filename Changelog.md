@@ -11,6 +11,9 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+v0.36
+* Patch kernel from 3.4.87 to 3.4.88
+
 v0.35
 * A number of patches to random & prandom
 * ext4: optimize test_root()
