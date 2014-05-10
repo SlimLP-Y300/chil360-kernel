@@ -377,7 +377,8 @@ static int ashmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		return -EINVAL;
 	}
 #else
-    mutex_lock(&ashmem_mutex);
+	if (!mutex_trylock(&ashmem_mutex))
+		return -1;
 #endif
 	
 	list_for_each_entry_safe(range, next, &ashmem_lru_list, lru) {
