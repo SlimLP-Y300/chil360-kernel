@@ -11,6 +11,14 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+v0.37
+* Patch kernel from 3.4.88 to 3.4.89
+* BFQ I/O scheduler v7r3
+* radio-tavarua: update to msm-3.4
+* power: add an API to log wakeup reasons
+* CHROMIUM: mm: Fix calculation of dirtyable memory
+* More... (see commit log)
+
 v0.36
 * Patch kernel from 3.4.87 to 3.4.88
 
