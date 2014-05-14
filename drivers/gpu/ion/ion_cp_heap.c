@@ -26,7 +26,6 @@
 #include <linux/vmalloc.h>
 #include <linux/memory_alloc.h>
 #include <linux/seq_file.h>
-#include <linux/fmem.h>
 #include <linux/iommu.h>
 
 #include <asm/mach/map.h>
@@ -68,8 +67,6 @@
  *		user space.
  * @iommu_iova: saved iova when mapping full heap at once.
  * @iommu_partition: partition used to map full heap.
- * @reusable: indicates if the memory should be reused via fmem.
- * @reserved_vrange: reserved virtual address range for use with fmem
  * @iommu_map_all:	Indicates whether we should map whole heap into IOMMU.
  * @iommu_2x_map_domain: Indicates the domain to use for overmapping.
  * @has_outer_cache:    set to 1 if outer cache is used, 0 otherwise.
@@ -93,8 +90,6 @@ struct ion_cp_heap {
 	unsigned long umap_count;
 	unsigned long iommu_iova[MAX_DOMAINS];
 	unsigned long iommu_partition[MAX_DOMAINS];
-	int reusable;
-	void *reserved_vrange;
 	int iommu_map_all;
 	int iommu_2x_map_domain;
 	unsigned int has_outer_cache;
@@ -125,8 +120,7 @@ static unsigned long ion_cp_get_total_kmap_count(
 }
 
 /**
- * Protects memory if heap is unsecured heap. Also ensures that we are in
- * the correct FMEM state if this heap is a reusable heap.
+ * Protects memory if heap is unsecured heap.
  * Must be called with heap->lock locked.
  */
 static int ion_cp_protect(struct ion_heap *heap, int version, void *data)
@@ -137,12 +131,6 @@ static int ion_cp_protect(struct ion_heap *heap, int version, void *data)
 
 	if (atomic_inc_return(&cp_heap->protect_cnt) == 1) {
 		/* Make sure we are in C state when the heap is protected. */
-		if (cp_heap->reusable && !cp_heap->allocated_bytes) {
-			ret_value = fmem_set_state(FMEM_C_STATE);
-			if (ret_value)
-				goto out;
-		}
-
 		ret_value = ion_cp_protect_mem(cp_heap->secure_base,
 				cp_heap->secure_size, cp_heap->permission_type,
 				version, data);
@@ -150,11 +138,6 @@ static int ion_cp_protect(struct ion_heap *heap, int version, void *data)
 			pr_err("Failed to protect memory for heap %s - "
 				"error code: %d\n", heap->name, ret_value);
 
-			if (cp_heap->reusable && !cp_heap->allocated_bytes) {
-				if (fmem_set_state(FMEM_T_STATE) != 0)
-					pr_err("%s: unable to transition heap to T-state\n",
-						__func__);
-			}
 			atomic_dec(&cp_heap->protect_cnt);
 		} else {
 			cp_heap->heap_protected = HEAP_PROTECTED;
@@ -162,7 +145,7 @@ static int ion_cp_protect(struct ion_heap *heap, int version, void *data)
 				heap->name, cp_heap->base);
 		}
 	}
-out:
+
 	pr_debug("%s: protect count is %d\n", __func__,
 		atomic_read(&cp_heap->protect_cnt));
 	BUG_ON(atomic_read(&cp_heap->protect_cnt) < 0);
@@ -170,8 +153,7 @@ out:
 }
 
 /**
- * Unprotects memory if heap is secure heap. Also ensures that we are in
- * the correct FMEM state if this heap is a reusable heap.
+ * Unprotects memory if heap is secure heap.
  * Must be called with heap->lock locked.
  */
 static void ion_cp_unprotect(struct ion_heap *heap, int version, void *data)
@@ -190,12 +172,6 @@ static void ion_cp_unprotect(struct ion_heap *heap, int version, void *data)
 			cp_heap->heap_protected = HEAP_NOT_PROTECTED;
 			pr_debug("Un-protected heap %s @ 0x%x\n", heap->name,
 				(unsigned int) cp_heap->base);
-
-			if (cp_heap->reusable && !cp_heap->allocated_bytes) {
-				if (fmem_set_state(FMEM_T_STATE) != 0)
-					pr_err("%s: unable to transition heap to T-state",
-						__func__);
-			}
 		}
 	}
 	pr_debug("%s: protect count is %d\n", __func__,
@@ -232,17 +208,6 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 		return ION_CP_ALLOCATE_FAIL;
 	}
 
-	/*
-	 * if this is the first reusable allocation, transition
-	 * the heap
-	 */
-	if (cp_heap->reusable && !cp_heap->allocated_bytes) {
-		if (fmem_set_state(FMEM_C_STATE) != 0) {
-			mutex_unlock(&cp_heap->lock);
-			return ION_RESERVED_ALLOCATE_FAIL;
-		}
-	}
-
 	cp_heap->allocated_bytes += size;
 	mutex_unlock(&cp_heap->lock);
 
@@ -261,12 +226,6 @@ ion_phys_addr_t ion_cp_allocate(struct ion_heap *heap,
 				cp_heap->total_size -
 				cp_heap->allocated_bytes, size);
 
-		if (cp_heap->reusable && !cp_heap->allocated_bytes &&
-		    cp_heap->heap_protected == HEAP_NOT_PROTECTED) {
-			if (fmem_set_state(FMEM_T_STATE) != 0)
-				pr_err("%s: unable to transition heap to T-state\n",
-					__func__);
-		}
 		mutex_unlock(&cp_heap->lock);
 
 		return ION_CP_ALLOCATE_FAIL;
@@ -310,13 +269,6 @@ void ion_cp_free(struct ion_heap *heap, ion_phys_addr_t addr,
 
 	mutex_lock(&cp_heap->lock);
 	cp_heap->allocated_bytes -= size;
-
-	if (cp_heap->reusable && !cp_heap->allocated_bytes &&
-	    cp_heap->heap_protected == HEAP_NOT_PROTECTED) {
-		if (fmem_set_state(FMEM_T_STATE) != 0)
-			pr_err("%s: unable to transition heap to T-state\n",
-				__func__);
-	}
 
 	/* Unmap everything if we previously mapped the whole heap at once. */
 	if (!cp_heap->allocated_bytes) {
@@ -428,28 +380,6 @@ static int ion_cp_release_region(struct ion_cp_heap *cp_heap)
 	return ret_value;
 }
 
-void *ion_map_fmem_buffer(struct ion_buffer *buffer, unsigned long phys_base,
-				void *virt_base, unsigned long flags)
-{
-	int ret;
-	unsigned int offset = buffer->priv_phys - phys_base;
-	unsigned long start = ((unsigned long)virt_base) + offset;
-	const struct mem_type *type = ION_IS_CACHED(flags) ?
-				get_mem_type(MT_DEVICE_CACHED) :
-				get_mem_type(MT_DEVICE);
-
-	if (phys_base > buffer->priv_phys)
-		return NULL;
-
-
-	ret = ioremap_pages(start, buffer->priv_phys, buffer->size, type);
-
-	if (!ret)
-		return (void *)start;
-	else
-		return NULL;
-}
-
 void *ion_cp_heap_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer)
 {
 	struct ion_cp_heap *cp_heap =
@@ -466,18 +396,12 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer)
 			return NULL;
 		}
 
-		if (cp_heap->reusable) {
-			ret_value = ion_map_fmem_buffer(buffer, cp_heap->base,
-				cp_heap->reserved_vrange, buffer->flags);
-
-		} else {
-			if (ION_IS_CACHED(buffer->flags))
-				ret_value = ioremap_cached(buffer->priv_phys,
-							   buffer->size);
-			else
-				ret_value = ioremap(buffer->priv_phys,
+		if (ION_IS_CACHED(buffer->flags))
+			ret_value = ioremap_cached(buffer->priv_phys,
 						    buffer->size);
-		}
+		else
+			ret_value = ioremap(buffer->priv_phys,
+					    buffer->size);
 
 		if (!ret_value) {
 			ion_cp_release_region(cp_heap);
@@ -498,10 +422,7 @@ void ion_cp_heap_unmap_kernel(struct ion_heap *heap,
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
 
-	if (cp_heap->reusable)
-		unmap_kernel_range((unsigned long)buffer->vaddr, buffer->size);
-	else
-		__arm_iounmap(buffer->vaddr);
+	__arm_iounmap(buffer->vaddr);
 
 	buffer->vaddr = NULL;
 
@@ -616,7 +537,6 @@ static int ion_cp_print_debug(struct ion_heap *heap, struct seq_file *s,
 	seq_printf(s, "umapping count: %lx\n", umap_count);
 	seq_printf(s, "kmapping count: %lx\n", kmap_count);
 	seq_printf(s, "heap protected: %s\n", heap_protected ? "Yes" : "No");
-	seq_printf(s, "reusable: %s\n", cp_heap->reusable  ? "Yes" : "No");
 
 	if (mem_map) {
 		unsigned long base = cp_heap->base;
@@ -939,8 +859,6 @@ struct ion_heap *ion_cp_heap_create(struct ion_platform_heap *heap_data)
 	if (heap_data->extra_data) {
 		struct ion_cp_heap_pdata *extra_data =
 				heap_data->extra_data;
-		cp_heap->reusable = extra_data->reusable;
-		cp_heap->reserved_vrange = extra_data->virt_addr;
 		cp_heap->permission_type = extra_data->permission_type;
 		if (extra_data->secure_size) {
 			cp_heap->secure_base = extra_data->secure_base;
