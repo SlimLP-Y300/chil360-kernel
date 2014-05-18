@@ -11,6 +11,14 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+v0.38
+* Patch kernel from 3.4.89 to 3.4.91
+* Add TCP Small Queues
+* Update LZO Compression
+* User-space I/O driver support for HID
+* Remove some unused code/features - fmem, swap token, VCM framework, token ring
+* More... (see commit log)
+
 v0.37
 * Patch kernel from 3.4.88 to 3.4.89
 * BFQ I/O scheduler v7r3
