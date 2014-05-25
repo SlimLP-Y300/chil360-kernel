@@ -11,6 +11,14 @@ It is based on the [huawei-kernel-3.4] by Dazzozo
 
 Changelog
 ---------
+v0.39
+* ZRAM updates
+* I2C updates
+* VFP updates
+* Android alarm driver updates
+* Use generic strnlen_user & strncpy_from_user functions
+* More... (see commit log)
+
 v0.38
 * Patch kernel from 3.4.89 to 3.4.91
 * Add TCP Small Queues
