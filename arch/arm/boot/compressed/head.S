@@ -10,7 +10,6 @@
  */
 #include <linux/linkage.h>
 
-	.arch	armv7-a
 /*
  * Debugging stuff
  *
