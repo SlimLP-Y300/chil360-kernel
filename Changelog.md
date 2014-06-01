@@ -9,8 +9,20 @@ The Chil360 Kernel is an Android kernel for the following devices:
 
 It is based on the [huawei-kernel-3.4] by Dazzozo
 
+I have also used patches from the following repos, so credits go the owners
+of these repos and their contributors.
+
+* [Christopher83]
+* [mrg666]
+* [TeamHackLG]
+* [moddingg33k]
+
 Changelog
 ---------
+v0.40
+* Add LZ4 API
+* ARM Lib updates - memset fixes/optimizations for GCC 4.7+ toochains
+
 v0.39
 * ZRAM updates
 * I2C updates
@@ -133,3 +145,7 @@ v0.10
 * Build fixes to compile with Linaro 4.8
 
 [huawei-kernel-3.4]:https://github.com/Dazzozo/huawei-kernel-3.4
+[Christopher83]:https://github.com/Christopher83/samsung-kernel-msm7x30
+[mrg666]:https://github.com/mrg666/android_kernel_mako/
+[TeamHackLG]:https://github.com/TeamHackLG/lge-kernel-lproj
+[moddingg33k]:https://github.com/moddingg33k/android_kernel_huawai_Y300-J1
