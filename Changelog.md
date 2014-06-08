@@ -19,6 +19,11 @@ of these repos and their contributors.
 
 Changelog
 ---------
+v0.41
+* Patch kernel from 3.4.91 to 3.4.92
+* BFQ I/O scheduler v7r4
+* Futex updates
+
 v0.40
 * Add LZ4 API
 * ARM Lib updates - memset fixes/optimizations for GCC 4.7+ toochains
