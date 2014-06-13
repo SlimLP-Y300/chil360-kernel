@@ -46,10 +46,6 @@
 
 u64 freq_boosted_time;
 
-/* define the sample rate to 30ms for non-idle state */
-#ifdef CONFIG_HUAWEI_KERNEL
-#define MICRO_FREQUENCY_PREFERED_SAMPLE_RATE (30000)
-#endif
 /*
  * The polling frequency of this governor depends on the capability of
  * the processor. Default polling frequency is 1000 times the transition
@@ -132,7 +128,6 @@ static DEFINE_MUTEX(dbs_mutex);
 
 static struct workqueue_struct *input_wq;
 
-/* merge qcom commit c8fc30160f2fcfb2578e13e05202fb387c993a14 */
 struct dbs_work_struct {
 	struct work_struct work;
 	unsigned int cpu;
@@ -683,48 +678,6 @@ static struct attribute_group dbs_attr_group = {
 	.name = "ondemand",
 };
 
-#ifdef CONFIG_HUAWEI_KERNEL
-/* set sample rate according to the input parameter screen_on:
-   1: set sample rate to non-idle state value, namely 30ms
-   0: set sample rate to idle state value, namely 50ms
-*/
-void set_sampling_rate(int screen_on)
-{
-    char *buff_on = "30000";
-    char *buff_off= "50000";
-
-    if(1 == screen_on)
-    {
-        store_sampling_rate(NULL, NULL, buff_on, strlen(buff_on));
-    }
-    else
-    {
-        store_sampling_rate(NULL, NULL, buff_off, strlen(buff_off));
-    }
-}
-EXPORT_SYMBOL(set_sampling_rate);
-
-/* set threshold according to the input parameter screen_on:
-   1: set up_threshold to non-idle state value, namely 80%
-   0: set up_threshold to idle state value, namely 95%
-*/
-void set_up_threshold(int screen_on)
-{
-    char *buff_on = "80";
-    char *buff_off= "95";
-
-    if(1 == screen_on)
-    {
-        store_up_threshold(NULL, NULL, buff_on, strlen(buff_on));
-    }
-    else
-    {
-        store_up_threshold(NULL, NULL, buff_off, strlen(buff_off));
-    }
-}
-EXPORT_SYMBOL(set_up_threshold);
-#endif
-
 /************************** sysfs end ************************/
 
 static void dbs_freq_increase(struct cpufreq_policy *p, unsigned int freq)
@@ -1015,7 +968,6 @@ static int should_io_be_busy(void)
 	return 0;
 }
 
-/* merge qcom commit c8fc30160f2fcfb2578e13e05202fb387c993a14 */
 static void dbs_refresh_callback(struct work_struct *work)
 {
 	struct cpufreq_policy *policy;
@@ -1072,38 +1024,15 @@ static void dbs_input_event(struct input_handle *handle, unsigned int type,
 		sampling_rate_boosted = 1;
 	}
 
-	/* merge qcom commit c8fc30160f2fcfb2578e13e05202fb387c993a14 */
 	for_each_online_cpu(i)
 		queue_work_on(i, input_wq, &per_cpu(dbs_refresh_work, i).work);
 }
-
-#ifdef CONFIG_HUAWEI_KERNEL
-/* Filter some input devices which we don't care */
-static int input_dev_filter(const char* input_dev_name)
-{
-    int ret = false;
-
-    if (strstr(input_dev_name, "sensors")
-        || strstr(input_dev_name, "_test_input")) {
-        ret = true;
-    } else {
-        ret = false;
-    }
-
-    return ret;
-}
-#endif
 
 static int dbs_input_connect(struct input_handler *handler,
 		struct input_dev *dev, const struct input_device_id *id)
 {
 	struct input_handle *handle;
 	int error;
-#ifdef CONFIG_HUAWEI_KERNEL
-    /* Filter out those input_dev that we don't care */
-    if (input_dev_filter(dev->name))
-        return 0;
-#endif
 
 	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
 	if (!handle)
@@ -1202,22 +1131,15 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			/* Bring kernel and HW constraints together */
 			min_sampling_rate = max(min_sampling_rate,
 					MIN_LATENCY_MULTIPLIER * latency);
-#ifdef CONFIG_HUAWEI_KERNEL
-			dbs_tuners_ins.sampling_rate = MICRO_FREQUENCY_PREFERED_SAMPLE_RATE;
-#else
-			dbs_tuners_ins.sampling_rate = 
+			dbs_tuners_ins.sampling_rate =
 				max(min_sampling_rate,
 				    latency * LATENCY_MULTIPLIER);
-#endif
 			dbs_tuners_ins.io_is_busy = should_io_be_busy();
 		}
 		if (!cpu)
 			rc = input_register_handler(&dbs_input_handler);
 		mutex_unlock(&dbs_mutex);
 
-		/* merge qcom patch Ie9014407.
-		 * delete 1 line and move it to cpufreq_gov_dbs_init.
-		 */
 
 		if (!ondemand_powersave_bias_setspeed(
 					this_dbs_info->cur_policy,
@@ -1277,10 +1199,7 @@ static int __init cpufreq_gov_dbs_init(void)
 	put_cpu();
 	if (idle_time != -1ULL) {
 		/* Idle micro accounting is supported. Use finer thresholds */
-		/* use the initialized value */
-#ifndef CONFIG_HUAWEI_KERNEL
 		dbs_tuners_ins.up_threshold = MICRO_FREQUENCY_UP_THRESHOLD;
-#endif
 		dbs_tuners_ins.down_differential =
 					MICRO_FREQUENCY_DOWN_DIFFERENTIAL;
 		/*
@@ -1301,10 +1220,6 @@ static int __init cpufreq_gov_dbs_init(void)
 		return -EFAULT;
 	}
 	for_each_possible_cpu(i) {
-		/* merge qcom commit c8fc30160f2fcfb2578e13e05202fb387c993a14 */
-		/* merge qcom patch Ie9014407.
-		* add mutex_init here to make sure it is called before mutex_lock.
-		*/
 		struct cpu_dbs_info_s *this_dbs_info =
 			&per_cpu(od_cpu_dbs_info, i);
 		struct dbs_work_struct *dbs_work =

@@ -806,7 +806,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	uint32_t oob_len;
 	uint32_t sectordatasize;
 	uint32_t sectoroobsize;
-	int err, pageerr, rawerr;
+	int err = 0, pageerr = 0, rawerr = 0;
 	dma_addr_t data_dma_addr = 0;
 	dma_addr_t oob_dma_addr = 0;
 	dma_addr_t data_dma_addr_curr = 0;
@@ -1232,7 +1232,7 @@ static int msm_nand_read_oob_dualnandc(struct mtd_info *mtd, loff_t from,
 	uint32_t oob_len;
 	uint32_t sectordatasize;
 	uint32_t sectoroobsize;
-	int err, pageerr, rawerr;
+	int err = 0, pageerr = 0, rawerr = 0;
 	dma_addr_t data_dma_addr = 0;
 	dma_addr_t oob_dma_addr = 0;
 	dma_addr_t data_dma_addr_curr = 0;
@@ -4079,7 +4079,7 @@ static int msm_nand_write_apanic(struct mtd_info *mtd, loff_t to, size_t len,
 static int
 msm_nand_erase(struct mtd_info *mtd, struct erase_info *instr)
 {
-	int err;
+	int err = 0;
 	struct msm_nand_chip *chip = mtd->priv;
 	struct {
 		dmov_s cmd[6];
@@ -4207,7 +4207,7 @@ msm_nand_erase(struct mtd_info *mtd, struct erase_info *instr)
 static int
 msm_nand_erase_dualnandc(struct mtd_info *mtd, struct erase_info *instr)
 {
-	int err;
+	int err = 0;
 	struct msm_nand_chip *chip = mtd->priv;
 	struct {
 		dmov_s cmd[18];
@@ -8063,7 +8063,7 @@ static int __devinit msm_nand_probe(struct platform_device *pdev)
 {
 	struct msm_nand_info *info;
 	struct resource *res;
-	int err;
+	int err = 0;
 	struct flash_platform_data *plat_data;
 
 	plat_data = pdev->dev.platform_data;
