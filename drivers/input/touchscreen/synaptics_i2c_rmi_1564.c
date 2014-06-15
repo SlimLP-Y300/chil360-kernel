@@ -198,6 +198,8 @@ struct synaptics_function_descriptor {
 #define BIEL    11
 #define JDI     12
 
+#define FUZZ_FACTOR_X	3
+#define FUZZ_FACTOR_Y	5
 
 /* delete */
 static char touch_info[50] = {0};
@@ -2123,8 +2125,8 @@ static int synaptics_rmi4_probe(
 			/* Linux 2.6.31 multi-touch */
 			input_set_abs_params(g_ts->input_dev, ABS_MT_TRACKING_ID, 1,
                     			g_ts->f11.points_supported, 0, 0);
-			input_set_abs_params(g_ts->input_dev, ABS_MT_POSITION_X, 0, lcd_x - 1, 0, 0);
-			input_set_abs_params(g_ts->input_dev, ABS_MT_POSITION_Y, 0, lcd_y - 1, 0, 0);
+			input_set_abs_params(g_ts->input_dev, ABS_MT_POSITION_X, 0, lcd_x - 1, FUZZ_FACTOR_X, 0);
+			input_set_abs_params(g_ts->input_dev, ABS_MT_POSITION_Y, 0, lcd_y - 1, FUZZ_FACTOR_Y, 0);
 			input_set_abs_params(g_ts->input_dev, ABS_MT_TOUCH_MAJOR, 0, 0xF, 0, 0);
 			input_set_abs_params(g_ts->input_dev, ABS_MT_TOUCH_MINOR, 0, 0xF, 0, 0);
 			input_set_abs_params(g_ts->input_dev, ABS_MT_ORIENTATION, 0, 1, 0, 0);
@@ -2132,8 +2134,8 @@ static int synaptics_rmi4_probe(
 		}
 		else
 		{
-            input_set_abs_params(g_ts->input_dev, ABS_X, 0, lcd_x-1, 0, 0);
-            input_set_abs_params(g_ts->input_dev, ABS_Y, 0, lcd_y-1, 0, 0);
+            input_set_abs_params(g_ts->input_dev, ABS_X, 0, lcd_x-1, FUZZ_FACTOR_X, 0);
+            input_set_abs_params(g_ts->input_dev, ABS_Y, 0, lcd_y-1, FUZZ_FACTOR_Y, 0);
             input_set_abs_params(g_ts->input_dev, ABS_PRESSURE, 0, 255, 0, 0);
                 
 		}
