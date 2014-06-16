@@ -19,6 +19,14 @@ of these repos and their contributors.
 
 Changelog
 ---------
+v0.42
+* Patch kernel from 3.4.92 to 3.4.93
+* Freezer Updates
+* SoftIRQ updates
+* Hotplug updates
+* Implement LoUIS API for cache maintenance ops
+* More... (see commit log)
+
 v0.41
 * Patch kernel from 3.4.91 to 3.4.92
 * BFQ I/O scheduler v7r4
