@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, 2012 Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2008-2009, 2012 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2467,7 +2467,8 @@ void mdp_set_blend_attr(MDPIBUF *iBuf,
 			bg_alpha = PPP_BLEND_BG_USE_ALPHA_SEL |
 				PPP_BLEND_BG_ALPHA_REVERSE;
 
-			if (perPixelAlpha) {
+			if ((perPixelAlpha) && !(iBuf->mdpImg.mdpOp &
+							MDPOP_LAYER_IS_FG)) {
 				bg_alpha |= PPP_BLEND_BG_SRCPIXEL_ALPHA;
 			} else {
 				bg_alpha |= PPP_BLEND_BG_CONSTANT_ALPHA;
@@ -2478,7 +2479,12 @@ void mdp_set_blend_attr(MDPIBUF *iBuf,
 			if (iBuf->mdpImg.mdpOp & MDPOP_TRANSP)
 				*pppop_reg_ptr |= PPP_BLEND_CALPHA_TRNASP;
 		} else if (perPixelAlpha) {
-				*pppop_reg_ptr |= PPP_OP_ROT_ON |
+				if (iBuf->mdpImg.mdpOp & MDPOP_LAYER_IS_FG)
+					*pppop_reg_ptr |= PPP_OP_ROT_ON |
+						  PPP_OP_BLEND_ON |
+						  PPP_OP_BLEND_CONSTANT_ALPHA;
+				else
+					*pppop_reg_ptr |= PPP_OP_ROT_ON |
 						  PPP_OP_BLEND_ON |
 						  PPP_OP_BLEND_SRCPIXEL_ALPHA;
 				outpdw(MDP_BASE + 0x70010, 0);

@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,7 +47,7 @@ ssize_t mdp_dma_video_show_event(struct device *dev,
 
 	wait_for_completion(&vsync_cntrl.vsync_wait);
 	ret = snprintf(buf, PAGE_SIZE, "VSYNC=%llu",
-	ktime_to_ns(vsync_cntrl.vsync_time));
+			ktime_to_ns(vsync_cntrl.vsync_time));
 	buf[strlen(buf) + 1] = '\0';
 	return ret;
 }
@@ -107,7 +107,6 @@ int mdp_dsi_video_on(struct platform_device *pdev)
 
 	vsync_cntrl.dev = mfd->fbi->dev;
 	atomic_set(&vsync_cntrl.suspend, 0);
-	vsync_cntrl.vsync_irq_enabled = 0;
 	bpp = fbi->var.bits_per_pixel / 8;
 	buf = (uint8 *) fbi->fix.smem_start;
 
@@ -246,8 +245,6 @@ int mdp_dsi_video_on(struct platform_device *pdev)
 	/* MDP cmd block disable */
 	mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_OFF, FALSE);
 
-        mdp_histogram_ctrl_all(TRUE);
-
 	return ret;
 }
 
@@ -286,23 +283,20 @@ void mdp_dma_video_vsync_ctrl(int enable)
 		INIT_COMPLETION(vsync_cntrl.vsync_wait);
 
 	vsync_cntrl.vsync_irq_enabled = enable;
-	/* delete two lines */
+	if (!enable)
+		vsync_cntrl.disabled_clocks = 0;
 	disabled_clocks = vsync_cntrl.disabled_clocks;
 	spin_unlock_irqrestore(&mdp_spin_lock, flag);
 
-	if (enable && disabled_clocks)
+	if (enable && disabled_clocks) {
 		mdp_pipe_ctrl(MDP_CMD_BLOCK, MDP_BLOCK_POWER_ON, FALSE);
-
-	spin_lock_irqsave(&mdp_spin_lock, flag);
-	if (enable && vsync_cntrl.disabled_clocks) {
+		spin_lock_irqsave(&mdp_spin_lock, flag);
 		outp32(MDP_INTR_CLEAR, LCDC_FRAME_START);
 		mdp_intr_mask |= LCDC_FRAME_START;
 		outp32(MDP_INTR_ENABLE, mdp_intr_mask);
 		mdp_enable_irq(MDP_VSYNC_TERM);
-		vsync_cntrl.disabled_clocks = 0;
+		spin_unlock_irqrestore(&mdp_spin_lock, flag);
 	}
-	spin_unlock_irqrestore(&mdp_spin_lock, flag);
-
 	if (vsync_cntrl.vsync_irq_enabled &&
 		atomic_read(&vsync_cntrl.suspend) == 0)
 		atomic_set(&vsync_cntrl.vsync_resume, 1);
