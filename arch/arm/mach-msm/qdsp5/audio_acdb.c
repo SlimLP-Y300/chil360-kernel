@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,6 @@
 #include <linux/wait.h>
 #include <linux/mutex.h>
 #include <linux/io.h>
-#include <linux/android_pmem.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/uaccess.h>
@@ -97,18 +96,19 @@ struct acdb_data {
 	u32 device_cb_compl;
 	u32 audpp_cb_compl;
 	u32 preproc_cb_compl;
+	u32 audpp_cb_reenable_compl;
 	u8 preproc_stream_id;
 	u8 audrec_applied;
 	u32 multiple_sessions;
 	u32 cur_tx_session;
 	struct acdb_result acdb_result;
+	uint32_t audpp_disabled_features;
 
 	spinlock_t dsp_lock;
 	int dec_id;
 	audpp_cmd_cfg_object_params_eqalizer eq;
 	struct audrec_session_info session_info;
 	/*pmem info*/
-	int pmem_fd;
 	unsigned long paddr;
 	unsigned long kvaddr;
 	unsigned long pmem_len;
@@ -1134,7 +1134,6 @@ static long audio_acdb_ioctl(struct file *file, unsigned int cmd,
 {
 	int rc = 0;
 	unsigned long flags = 0;
-	struct msm_audio_pmem_info info;
 
 	MM_DBG("%s\n", __func__);
 
@@ -1153,23 +1152,6 @@ static long audio_acdb_ioctl(struct file *file, unsigned int cmd,
 		if (rc < 0)
 			MM_ERR("AUDPP returned err =%d\n", rc);
 		spin_unlock_irqrestore(&acdb_data.dsp_lock, flags);
-		break;
-	case AUDIO_REGISTER_PMEM:
-		MM_DBG("AUDIO_REGISTER_PMEM\n");
-		if (copy_from_user(&info, (void *) arg, sizeof(info))) {
-			MM_ERR("Cannot copy from user\n");
-			return -EFAULT;
-		}
-		rc = get_pmem_file(info.fd, &acdb_data.paddr,
-					&acdb_data.kvaddr,
-					&acdb_data.pmem_len,
-					&acdb_data.file);
-		if (rc == 0)
-			acdb_data.pmem_fd = info.fd;
-		break;
-	case AUDIO_DEREGISTER_PMEM:
-		if (acdb_data.pmem_fd)
-			put_pmem_file(acdb_data.file);
 		break;
 	case AUDIO_SET_ACDB_BLK:
 		MM_DBG("IOCTL AUDIO_SET_ACDB_BLK\n");
@@ -1300,6 +1282,15 @@ err_state:
 	return result;
 }
 EXPORT_SYMBOL(acdb_get_calibration_data);
+
+int is_acdb_enabled()
+{
+	if (acdb_data.handle != NULL)
+		return 1;
+	else
+		return 0;
+}
+EXPORT_SYMBOL(is_acdb_enabled);
 
 static u8 check_device_info_already_present(
 		struct dev_evt_msg device_info,
@@ -1522,7 +1513,7 @@ static s32 acdb_calibrate_audpp(void)
 			result = -EINVAL;
 			goto done;
 		} else
-			MM_DBG("AUDPP is calibrated with IIR parameters");
+			MM_DBG("AUDPP is calibrated with IIR parameters\n");
 	}
 	result = acdb_fill_audpp_mbadrc();
 	if (!IS_ERR_VALUE(result)) {
@@ -1538,6 +1529,40 @@ static s32 acdb_calibrate_audpp(void)
 			MM_DBG("AUDPP is calibrated with MBADRC parameters");
 	}
 done:
+	return result;
+}
+
+static s32 acdb_re_enable_audpp(void)
+{
+	s32	result = 0;
+
+	if ((acdb_data.audpp_disabled_features &
+			(1 << AUDPP_CMD_IIR_TUNING_FILTER))
+			== (1 << AUDPP_CMD_IIR_TUNING_FILTER)) {
+		result = audpp_dsp_set_rx_iir(COMMON_OBJ_ID,
+				acdb_data.pp_iir->active_flag,
+				acdb_data.pp_iir);
+		if (result) {
+			MM_ERR("ACDB=> Failed to send IIR data to postproc\n");
+			result = -EINVAL;
+		} else {
+			MM_DBG("Re-enable IIR parameters");
+		}
+	}
+	if ((acdb_data.audpp_disabled_features & (1 << AUDPP_CMD_MBADRC))
+			== (1 << AUDPP_CMD_MBADRC)) {
+		result = audpp_dsp_set_mbadrc(COMMON_OBJ_ID,
+				acdb_data.pp_mbadrc->enable,
+				acdb_data.pp_mbadrc);
+		if (result) {
+			MM_ERR("ACDB=> Failed to send MBADRC data to"\
+					" postproc\n");
+			result = -EINVAL;
+		} else {
+			MM_DBG("Re-enable MBADRC parameters");
+		}
+	}
+	acdb_data.audpp_disabled_features = 0;
 	return result;
 }
 
@@ -2270,13 +2295,9 @@ update_cache:
 		if (ret == 1) {
 			MM_DBG("got device ready call back for another "\
 					"audplay task sessions on same COPP\n");
-			/*stream_id is used to keep track of number of active*/
-			/*sessions active on this device*/
-			acdb_cache_free_node->stream_id++;
 			mutex_unlock(&acdb_data.acdb_mutex);
 			goto done;
 		}
-		acdb_cache_free_node->stream_id++;
 	}
 	update_acdb_data_struct(acdb_cache_free_node);
 	acdb_data.device_cb_compl = 1;
@@ -2306,6 +2327,22 @@ done:
 static void audpp_cb(void *private, u32 id, u16 *msg)
 {
 	MM_DBG("\n");
+
+	if (id == AUDPP_MSG_PP_DISABLE_FEEDBACK) {
+		acdb_data.audpp_disabled_features |=
+			((uint32_t)(msg[AUDPP_DISABLE_FEATS_MSW] << 16) |
+			 msg[AUDPP_DISABLE_FEATS_LSW]);
+		MM_INFO("AUDPP disable feedback: %x",
+				acdb_data.audpp_disabled_features);
+		goto done;
+	} else if (id == AUDPP_MSG_PP_FEATS_RE_ENABLE) {
+		MM_INFO("AUDPP re-enable messaage: %x",
+				acdb_data.audpp_disabled_features);
+		acdb_data.audpp_cb_reenable_compl = 1;
+		wake_up(&acdb_data.wait);
+		return;
+	}
+
 	if (id != AUDPP_MSG_CFG_MSG)
 		goto done;
 
@@ -2317,6 +2354,9 @@ static void audpp_cb(void *private, u32 id, u16 *msg)
 		}
 		goto done;
 	}
+	/*stream_id is used to keep track of number of active*/
+	/*sessions active on this device*/
+	acdb_cache_rx.stream_id++;
 
 	acdb_data.acdb_state |= AUDPP_READY;
 	acdb_data.audpp_cb_compl = 1;
@@ -2496,6 +2536,7 @@ static s32 acdb_calibrate_device(void *data)
 		wait_event_interruptible(acdb_data.wait,
 					(acdb_data.device_cb_compl
 					| acdb_data.audpp_cb_compl
+					| acdb_data.audpp_cb_reenable_compl
 					| acdb_data.preproc_cb_compl));
 		mutex_lock(&acdb_data.acdb_mutex);
 		if (acdb_data.device_cb_compl) {
@@ -2526,6 +2567,11 @@ static s32 acdb_calibrate_device(void *data)
 			if (acdb_data.device_info->dev_type.tx_device)
 				handle_tx_device_ready_callback();
 			else {
+				if (acdb_data.audpp_cb_reenable_compl) {
+					MM_INFO("Reset disabled feature flag");
+					acdb_data.audpp_disabled_features = 0;
+					acdb_data.audpp_cb_reenable_compl = 0;
+				}
 				acdb_cache_rx.node_status =\
 						ACDB_VALUES_FILLED;
 				if (acdb_data.acdb_state &
@@ -2538,6 +2584,7 @@ static s32 acdb_calibrate_device(void *data)
 		}
 
 		if (!(acdb_data.audpp_cb_compl ||
+				acdb_data.audpp_cb_reenable_compl ||
 				acdb_data.preproc_cb_compl)) {
 			MM_DBG("need to wait for either AUDPP / AUDPREPROC "\
 					"Event\n");
@@ -2546,8 +2593,19 @@ static s32 acdb_calibrate_device(void *data)
 		} else {
 			MM_DBG("got audpp / preproc call back\n");
 			if (acdb_data.audpp_cb_compl) {
+				if (acdb_data.audpp_cb_reenable_compl) {
+					MM_INFO("Reset disabled feature flag");
+					acdb_data.audpp_disabled_features = 0;
+					acdb_data.audpp_cb_reenable_compl = 0;
+				}
 				send_acdb_values_for_active_devices();
 				acdb_data.audpp_cb_compl = 0;
+				mutex_unlock(&acdb_data.acdb_mutex);
+				continue;
+			} else if (acdb_data.audpp_cb_reenable_compl) {
+				acdb_re_enable_audpp();
+				acdb_data.audpp_disabled_features = 0;
+				acdb_data.audpp_cb_reenable_compl = 0;
 				mutex_unlock(&acdb_data.acdb_mutex);
 				continue;
 			} else {

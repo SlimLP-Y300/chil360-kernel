@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1672,24 +1672,19 @@ static int audio_mvs_open(struct inode *inode, struct file *file)
 
 	mutex_lock(&audio_mvs_info.lock);
 
-//Note: disable the state judgement between state with AUDIO_MVS_CLOSED 
-// according to QC SR 01103475. 
-#if 0
-	if (audio_mvs_info.state == AUDIO_MVS_CLOSED) {
-#endif
-		if (audio_mvs_info.task != NULL ||
-			audio_mvs_info.rpc_endpt != NULL) {
-			rc = audio_mvs_alloc_buf(&audio_mvs_info);
+	if (audio_mvs_info.task != NULL ||
+		audio_mvs_info.rpc_endpt != NULL) {
+		rc = audio_mvs_alloc_buf(&audio_mvs_info);
 
-			if (rc == 0) {
-				audio_mvs_info.state = AUDIO_MVS_OPENED;
-				file->private_data = &audio_mvs_info;
-			}
-		}  else {
-			MM_ERR("MVS thread and RPC end point do not exist\n");
-
-			rc = -ENODEV;
+		if (rc == 0) {
+			audio_mvs_info.state = AUDIO_MVS_OPENED;
+			file->private_data = &audio_mvs_info;
 		}
+	}  else {
+		MM_ERR("MVS thread and RPC end point do not exist\n");
+
+		rc = -ENODEV;
+	}
 //Note: disable the state judgement between state with AUDIO_MVS_CLOSED 
 // according to QC SR 01103475.     
 #if 0
@@ -1752,6 +1747,7 @@ static void __exit audio_mvs_exit(void)
 {
 	MM_DBG("\n");
 
+	wake_lock_destroy(&audio_mvs_info.suspend_lock);
 	misc_deregister(&audio_mvs_misc);
 }
 
