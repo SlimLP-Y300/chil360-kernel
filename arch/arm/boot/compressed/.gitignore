@@ -17,3 +17,4 @@ fdt_rw.c
 fdt_wip.c
 libfdt.h
 libfdt_internal.h
+/bswapsdi2.S

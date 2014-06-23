@@ -19,6 +19,13 @@ of these repos and their contributors.
 
 Changelog
 ---------
+v0.43
+* Patch kernel from 3.4.93 to 3.4.94
+* QDSP Updates
+* Android staging driver updates to ashmem, lowmemorykiller, binder, logger, etc.
+* touchscreen: adding fuzz to improve ovation sensitivity
+* More... (see commit log)
+
 v0.42
 * Patch kernel from 3.4.92 to 3.4.93
 * Freezer Updates
