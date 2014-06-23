@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/dma-mapping.h>
-#include <linux/android_pmem.h>
+
 #include <asm/dma.h>
 #include <sound/core.h>
 #include <sound/soc.h>
@@ -28,6 +28,7 @@
 #include <sound/pcm.h>
 #include <sound/initval.h>
 #include <sound/control.h>
+#include <sound/timer.h>
 
 #include "msm-pcm-q6.h"
 #include "msm-pcm-routing.h"
@@ -46,11 +47,11 @@ struct snd_msm_volume {
 static struct snd_msm_volume multi_ch_pcm_audio = {NULL, 0x2000};
 
 #define PLAYBACK_NUM_PERIODS		8
-#define PLAYBACK_MAX_PERIOD_SIZE	4032
+#define PLAYBACK_MAX_PERIOD_SIZE	12288
 #define PLAYBACK_MIN_PERIOD_SIZE        256
 #define CAPTURE_NUM_PERIODS		16
 #define CAPTURE_MIN_PERIOD_SIZE		320
-#define CAPTURE_MAX_PERIOD_SIZE		5376
+#define CAPTURE_MAX_PERIOD_SIZE		12288
 
 static struct snd_pcm_hardware msm_pcm_hardware_capture = {
 	.info =                 (SNDRV_PCM_INFO_MMAP |
@@ -83,7 +84,7 @@ static struct snd_pcm_hardware msm_pcm_hardware_playback = {
 	.rate_min =             8000,
 	.rate_max =             48000,
 	.channels_min =         1,
-	.channels_max =         6,
+	.channels_max =         8,
 	.buffer_bytes_max =     PLAYBACK_NUM_PERIODS * PLAYBACK_MAX_PERIOD_SIZE,
 	.period_bytes_min =     PLAYBACK_MIN_PERIOD_SIZE,
 	.period_bytes_max =     PLAYBACK_MAX_PERIOD_SIZE,
@@ -110,6 +111,9 @@ static void event_handler(uint32_t opcode,
 {
 	struct msm_audio *prtd = priv;
 	struct snd_pcm_substream *substream = prtd->substream;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct audio_aio_write_param param;
+	struct audio_buffer *buf = NULL;
 	uint32_t *ptrmem = (uint32_t *)payload;
 	int i = 0;
 	uint32_t idx = 0;
@@ -118,6 +122,7 @@ static void event_handler(uint32_t opcode,
 	pr_debug("%s\n", __func__);
 	switch (opcode) {
 	case ASM_DATA_EVENT_WRITE_DONE: {
+		uint32_t *ptrmem = (uint32_t *)&param;
 		pr_debug("ASM_DATA_EVENT_WRITE_DONE\n");
 		pr_debug("Buffer Consumed = 0x%08x\n", *ptrmem);
 		prtd->pcm_irq_pos += prtd->pcm_count;
@@ -129,14 +134,31 @@ static void event_handler(uint32_t opcode,
 			break;
 		if (!prtd->mmap_flag)
 			break;
-		if (q6asm_is_cpu_buf_avail_nolock(IN,
-				prtd->audio_client,
-				&size, &idx)) {
-			pr_debug("%s:writing %d bytes of buffer to dsp 2\n",
-					__func__, prtd->pcm_count);
-			q6asm_write_nolock(prtd->audio_client,
-				prtd->pcm_count, 0, 0, NO_TIMESTAMP);
-		}
+		buf = prtd->audio_client->port[IN].buf;
+		pr_debug("%s:writing %d bytes of buffer[%d] to dsp 2\n",
+				__func__, prtd->pcm_count, prtd->out_head);
+		pr_debug("%s:writing buffer[%d] from 0x%08x\n",
+				__func__, prtd->out_head,
+				((unsigned int)buf[0].phys
+				+ (prtd->out_head * prtd->pcm_count)));
+		param.paddr = (unsigned long)buf[0].phys
+				+ (prtd->out_head * prtd->pcm_count);
+		param.len = prtd->pcm_count;
+		param.msw_ts = 0;
+		param.lsw_ts = 0;
+		param.flags = NO_TIMESTAMP;
+		param.uid =  (unsigned long)buf[0].phys
+				+ (prtd->out_head * prtd->pcm_count);
+		for (i = 0; i < sizeof(struct audio_aio_write_param)/4;
+					i++, ++ptrmem)
+			pr_debug("cmd[%d]=0x%08x\n", i, *ptrmem);
+		if (q6asm_async_write(prtd->audio_client,
+					&param) < 0)
+			pr_err("%s:q6asm_async_write failed\n",
+				__func__);
+		else
+			prtd->out_head =
+			(prtd->out_head + 1) & (runtime->periods - 1);
 		break;
 	}
 	case ASM_DATA_CMDRSP_EOS:
@@ -174,18 +196,36 @@ static void event_handler(uint32_t opcode,
 				break;
 			}
 			if (prtd->mmap_flag) {
-				pr_debug("%s:writing %d bytes"
-					" of buffer to dsp\n",
-					__func__,
-					prtd->pcm_count);
-				q6asm_write_nolock(prtd->audio_client,
-					prtd->pcm_count,
-					0, 0, NO_TIMESTAMP);
+				pr_debug("%s:writing %d bytes"\
+					" of buffer[%d] to dsp\n",
+					__func__, prtd->pcm_count,
+					prtd->out_head);
+				buf = prtd->audio_client->port[IN].buf;
+				pr_debug("%s:writing buffer[%d] from 0x%08x\n",
+					__func__, prtd->out_head,
+					((unsigned int)buf[0].phys
+					+ (prtd->out_head * prtd->pcm_count)));
+				param.paddr = (unsigned long)
+						buf[prtd->out_head].phys;
+				param.len = prtd->pcm_count;
+				param.msw_ts = 0;
+				param.lsw_ts = 0;
+				param.flags = NO_TIMESTAMP;
+				param.uid =  (unsigned long)
+						buf[prtd->out_head].phys;
+				if (q6asm_async_write(prtd->audio_client,
+							&param) < 0)
+					pr_err("%s:q6asm_async_write failed\n",
+						__func__);
+				else
+					prtd->out_head =
+						(prtd->out_head + 1)
+						& (runtime->periods - 1);
 			} else {
 				while (atomic_read(&prtd->out_needed)) {
-					pr_debug("%s:writing %d bytes"
-						 " of buffer to dsp\n",
-						__func__,
+					pr_debug("%s:writing %d bytesi" \
+						  " of buffer to dsp\n", \
+						__func__, \
 						prtd->pcm_count);
 					q6asm_write_nolock(prtd->audio_client,
 						prtd->pcm_count,
@@ -195,6 +235,11 @@ static void event_handler(uint32_t opcode,
 				};
 			}
 			atomic_set(&prtd->start, 1);
+			break;
+		case ASM_STREAM_CMD_FLUSH:
+			pr_debug("ASM_STREAM_CMD_FLUSH\n");
+			prtd->cmd_ack = 1;
+			wake_up(&the_locks.flush_wait);
 			break;
 		default:
 			break;
@@ -214,6 +259,13 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 	int ret;
 
 	pr_debug("%s\n", __func__);
+	if (prtd->mmap_flag) {
+		ret = q6asm_set_io_mode(prtd->audio_client, ASYNC_IO_MODE);
+		if (ret < 0) {
+			pr_err("%s: Set IO mode failed\n", __func__);
+			return -ENOMEM;
+		}
+	}
 	prtd->pcm_size = snd_pcm_lib_buffer_bytes(substream);
 	prtd->pcm_count = snd_pcm_lib_period_bytes(substream);
 	prtd->pcm_irq_pos = 0;
@@ -222,9 +274,29 @@ static int msm_pcm_playback_prepare(struct snd_pcm_substream *substream)
 	prtd->channel_mode = runtime->channels;
 	if (prtd->enabled)
 		return 0;
-
+	pr_debug("prtd->set_channel_map: %d", prtd->set_channel_map);
+	if (!prtd->set_channel_map) {
+		pr_debug("using default channel map");
+		memset(prtd->channel_map, 0, PCM_FORMAT_MAX_NUM_CHANNEL);
+		if (prtd->channel_mode == 1) {
+			prtd->channel_map[0] = PCM_CHANNEL_FL;
+		} else if (prtd->channel_mode == 2) {
+			prtd->channel_map[0] = PCM_CHANNEL_FL;
+			prtd->channel_map[1] = PCM_CHANNEL_FR;
+		} else if (prtd->channel_mode == 6) {
+			prtd->channel_map[0] = PCM_CHANNEL_FC;
+			prtd->channel_map[1] = PCM_CHANNEL_FL;
+			prtd->channel_map[2] = PCM_CHANNEL_FR;
+			prtd->channel_map[3] = PCM_CHANNEL_LB;
+			prtd->channel_map[4] = PCM_CHANNEL_RB;
+			prtd->channel_map[5] = PCM_CHANNEL_LFE;
+		} else {
+			pr_err("%s: ERROR.unsupported num_ch = %u\n", __func__,
+				prtd->channel_mode);
+		}
+	}
 	ret = q6asm_media_format_block_multi_ch_pcm(prtd->audio_client,
-			runtime->rate, runtime->channels);
+			runtime->rate, runtime->channels, prtd->channel_map);
 	if (ret < 0)
 		pr_info("%s: CMD Format block failed\n", __func__);
 
@@ -256,8 +328,8 @@ static int msm_pcm_capture_prepare(struct snd_pcm_substream *substream)
 
 	pr_debug("Samp_rate = %d\n", prtd->samp_rate);
 	pr_debug("Channel = %d\n", prtd->channel_mode);
-	ret = q6asm_enc_cfg_blk_pcm(prtd->audio_client, prtd->samp_rate,
-					prtd->channel_mode);
+	ret = q6asm_enc_cfg_blk_multi_ch_pcm(prtd->audio_client,
+		 prtd->samp_rate, prtd->channel_mode);
 	if (ret < 0)
 		pr_debug("%s: cmd cfg pcm was block failed", __func__);
 
@@ -337,6 +409,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 		kfree(prtd);
 		return -ENOMEM;
 	}
+	prtd->audio_client->perf_mode = false;
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		runtime->hw = msm_pcm_hardware_playback;
 		ret = q6asm_open_write(prtd->audio_client,
@@ -351,7 +424,8 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	/* Capture path */
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		runtime->hw = msm_pcm_hardware_capture;
-		ret = q6asm_open_read(prtd->audio_client, FORMAT_LINEAR_PCM);
+		ret = q6asm_open_read(prtd->audio_client,
+				FORMAT_MULTI_CHANNEL_LINEAR_PCM);
 		if (ret < 0) {
 			pr_err("%s: pcm in open failed\n", __func__);
 			q6asm_audio_client_free(prtd->audio_client);
@@ -364,8 +438,8 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 
 	prtd->session_id = prtd->audio_client->session;
 	msm_pcm_routing_reg_phy_stream(soc_prtd->dai_link->be_id,
+			prtd->audio_client->perf_mode,
 			prtd->session_id, substream->stream);
-
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		prtd->cmd_ack = 1;
 
@@ -403,6 +477,7 @@ static int msm_pcm_open(struct snd_pcm_substream *substream)
 	}
 
 	prtd->dsp_cnt = 0;
+	prtd->set_channel_map = false;
 	runtime->private_data = prtd;
 	pr_debug("substream->pcm->device = %d\n", substream->pcm->device);
 	pr_debug("soc_prtd->dai_link->be_id = %d\n", soc_prtd->dai_link->be_id);
@@ -443,7 +518,6 @@ int multi_ch_pcm_set_volume(unsigned volume)
 	return rc;
 }
 
-
 static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 	snd_pcm_uframes_t hwoff, void __user *buf, snd_pcm_uframes_t frames)
 {
@@ -463,7 +537,7 @@ static int msm_pcm_playback_copy(struct snd_pcm_substream *substream, int a,
 				__func__, atomic_read(&prtd->out_count));
 	ret = wait_event_timeout(the_locks.write_wait,
 			(atomic_read(&prtd->out_count)), 5 * HZ);
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event_timeout failed\n", __func__);
 		goto fail;
 	}
@@ -516,7 +590,7 @@ static int msm_pcm_playback_close(struct snd_pcm_substream *substream)
 	dir = IN;
 	ret = wait_event_timeout(the_locks.eos_wait,
 				prtd->cmd_ack, 5 * HZ);
-	if (ret < 0)
+	if (!ret)
 		pr_err("%s: CMD_EOS failed\n", __func__);
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 	q6asm_audio_client_buf_free_contiguous(dir,
@@ -555,7 +629,7 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 
 	ret = wait_event_timeout(the_locks.read_wait,
 			(atomic_read(&prtd->in_count)), 5 * HZ);
-	if (ret < 0) {
+	if (!ret) {
 		pr_debug("%s: wait_event_timeout failed\n", __func__);
 		goto fail;
 	}
@@ -707,10 +781,6 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 	else
 		dir = OUT;
 
-	/*
-	 *TODO : Need to Add Async IO changes. All period
-	 * size might not be supported.
-	 */
 	ret = q6asm_audio_client_buf_alloc_contiguous(dir,
 		prtd->audio_client,
 		(params_buffer_bytes(params) / params_periods(params)),
@@ -735,26 +805,103 @@ static int msm_pcm_hw_params(struct snd_pcm_substream *substream,
 	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
 	return 0;
 }
+static int msm_pcm_ioctl(struct snd_pcm_substream *substream,
+			unsigned int cmd, void *arg)
+{
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct msm_audio *prtd = runtime->private_data;
+	int ret = 0, rc;
+
+	pr_debug("%s\n", __func__);
+	ret = snd_pcm_lib_ioctl(substream, cmd, arg);
+	if (ret < 0) {
+		pr_err("%s, snd_pcm_lib_ioctl error\n", __func__);
+		return ret;
+	}
+
+	switch (cmd) {
+	case SNDRV_PCM_IOCTL1_RESET:
+		pr_debug("%s, SNDRV_PCM_IOCTL1_RESET\n", __func__);
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			prtd->cmd_ack = 0;
+			rc = q6asm_cmd(prtd->audio_client, CMD_FLUSH);
+			if (rc < 0) {
+				pr_err("%s: flush cmd failed rc=%d\n",
+					 __func__, rc);
+				break;
+			}
+			rc = wait_event_timeout(the_locks.flush_wait,
+				 prtd->cmd_ack, 5 * HZ);
+			if (rc < 0)
+				pr_err("Flush cmd timeout\n");
+			prtd->pcm_irq_pos = 0;
+			atomic_set(&prtd->out_count, runtime->periods);
+		}
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
 
 static struct snd_pcm_ops msm_pcm_ops = {
 	.open           = msm_pcm_open,
 	.copy		= msm_pcm_copy,
 	.hw_params	= msm_pcm_hw_params,
 	.close          = msm_pcm_close,
-	.ioctl          = snd_pcm_lib_ioctl,
+	.ioctl          = msm_pcm_ioctl,
 	.prepare        = msm_pcm_prepare,
 	.trigger        = msm_pcm_trigger,
 	.pointer        = msm_pcm_pointer,
 	.mmap		= msm_pcm_mmap,
 };
 
+
+static int pcm_chmap_ctl_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	int i;
+	char channel_mapping[PCM_FORMAT_MAX_NUM_CHANNEL];
+
+	pr_debug("%s", __func__);
+	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
+		channel_mapping[i] = (char)(ucontrol->value.integer.value[i]);
+	if (multi_ch_pcm_audio.prtd) {
+		multi_ch_pcm_audio.prtd->set_channel_map = true;
+		memcpy(multi_ch_pcm_audio.prtd->channel_map, channel_mapping,
+			 PCM_FORMAT_MAX_NUM_CHANNEL);
+	}
+	return 0;
+}
+
+
 static int msm_asoc_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_card *card = rtd->card->snd_card;
-	int ret = 0;
+	struct snd_pcm *pcm = rtd->pcm->streams[0].pcm;
+	struct snd_pcm_chmap *chmap_info;
+	struct snd_kcontrol *kctl;
+	char device_num[3];
 
+	int i, ret = 0;
 	if (!card->dev->coherent_dma_mask)
 		card->dev->coherent_dma_mask = DMA_BIT_MASK(32);
+
+	pr_debug("%s, Channel map cntrl add\n", __func__);
+	ret = snd_pcm_add_chmap_ctls(pcm, SNDRV_PCM_STREAM_PLAYBACK,
+				NULL, PCM_FORMAT_MAX_NUM_CHANNEL, 0,
+				&chmap_info);
+	if (ret < 0)
+		return ret;
+	kctl = chmap_info->kctl;
+	for (i = 0; i < kctl->count; i++)
+		kctl->vd[i].access |= SNDRV_CTL_ELEM_ACCESS_WRITE;
+	snprintf(device_num, sizeof(device_num), "%d", pcm->device);
+	strlcat(kctl->id.name, device_num, sizeof(kctl->id.name));
+	pr_debug("%s, Overwriting channel map control name to: %s",
+			 __func__, kctl->id.name);
+	kctl->put = pcm_chmap_ctl_put;
 	return ret;
 }
 
@@ -791,6 +938,7 @@ static int __init msm_soc_platform_init(void)
 	init_waitqueue_head(&the_locks.eos_wait);
 	init_waitqueue_head(&the_locks.write_wait);
 	init_waitqueue_head(&the_locks.read_wait);
+	init_waitqueue_head(&the_locks.flush_wait);
 
 	return platform_driver_register(&msm_pcm_driver);
 }

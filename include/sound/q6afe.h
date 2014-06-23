@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,6 +70,7 @@ enum {
 	IDX_RT_PROXY_PORT_001_TX = 31,
 	IDX_SECONDARY_PCM_RX = 32,
 	IDX_SECONDARY_PCM_TX = 33,
+	IDX_PSEUDOPORT_01 = 34,
 	AFE_MAX_PORTS
 };
 
@@ -87,7 +88,10 @@ int afe_cmd_memory_map(u32 dma_addr_p, u32 dma_buf_sz);
 int afe_cmd_memory_map_nowait(u32 dma_addr_p, u32 dma_buf_sz);
 int afe_cmd_memory_unmap(u32 dma_addr_p);
 int afe_cmd_memory_unmap_nowait(u32 dma_addr_p);
-
+void afe_set_dtmf_gen_rx_portid(u16 rx_port_id, int set);
+int afe_dtmf_generate_rx(int64_t duration_in_ms,
+			 uint16_t high_freq,
+			 uint16_t low_freq, uint16_t gain);
 int afe_register_get_events(u16 port_id,
 		void (*cb) (uint32_t opcode,
 		uint32_t token, uint32_t *payload, void *priv),

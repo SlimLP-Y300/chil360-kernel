@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,7 +61,7 @@
 #define RT_PROXY_PORT_001_TX	0x2001    /* index = 31 */
 #define SECONDARY_PCM_RX 12			/* index = 32 */
 #define SECONDARY_PCM_TX 13			/* index = 33 */
-
+#define PSEUDOPORT_01           0x8001    /* index =34 */
 
 #define AFE_PORT_INVALID 0xFFFF
 #define SLIMBUS_EXTPROC_RX AFE_PORT_INVALID
@@ -156,6 +156,55 @@ struct afe_get_active_handles_command {
 	u16 port_id;
 	u16 reserved;
 } __attribute__ ((packed));
+
+/*
+ * Opcode for AFE to start DTMF.
+ */
+#define AFE_PORTS_CMD_DTMF_CTL	0x00010102
+
+/** DTMF payload.*/
+struct afe_dtmf_generation_command {
+	struct apr_hdr hdr;
+
+	/*
+	 * Duration of the DTMF tone in ms.
+	 * -1      -> continuous,
+	 *  0      -> disable
+	 */
+	int64_t                   duration_in_ms;
+
+	/*
+	 * The DTMF high tone frequency.
+	 */
+	uint16_t                  high_freq;
+
+	/*
+	 * The DTMF low tone frequency.
+	 */
+	uint16_t                  low_freq;
+
+	/*
+	 * The DTMF volume setting
+	 */
+	uint16_t                  gain;
+
+	/*
+	 * The number of ports to enable/disable on.
+	 */
+	uint16_t                  num_ports;
+
+	/*
+	 * The Destination ports - array  .
+	 * For DTMF on multiple ports, portIds needs to
+	 * be populated numPorts times.
+	 */
+	uint16_t                  port_ids;
+
+	/*
+	 * variable for 32 bit alignment of APR packet.
+	 */
+	uint16_t                  reserved;
+} __packed;
 
 #define AFE_PCM_CFG_MODE_PCM			0x0
 #define AFE_PCM_CFG_MODE_AUX			0x1
@@ -299,6 +348,14 @@ struct afe_port_rtproxy_cfg {
 	int	num_ch;		/* 1 to 8 */
 } __packed;
 
+struct afe_port_pseudo_cfg {
+	u16 bit_width;
+	u16 num_channels;
+	u16 data_format;
+	u16 timing_mode;
+	u16 reserved;
+} __packed;
+
 #define AFE_PORT_AUDIO_IF_CONFIG 0x000100d3
 #define AFE_PORT_AUDIO_SLIM_SCH_CONFIG 0x000100e4
 #define AFE_PORT_MULTI_CHAN_HDMI_AUDIO_IF_CONFIG	0x000100D9
@@ -312,6 +369,7 @@ union afe_port_config {
 	struct afe_port_slimbus_cfg	  slimbus;
 	struct afe_port_slimbus_sch_cfg	  slim_sch;
 	struct afe_port_rtproxy_cfg       rtproxy;
+	struct afe_port_pseudo_cfg        pseudo;
 } __attribute__((packed));
 
 struct afe_audioif_config_command {
@@ -561,6 +619,7 @@ struct adm_copp_open_command {
 #define ADM_CMD_COPP_CLOSE                               0x00010305
 
 #define ADM_CMD_MULTI_CHANNEL_COPP_OPEN                  0x00010310
+#define ADM_CMD_MULTI_CHANNEL_COPP_OPEN_V3               0x00010333
 struct adm_multi_ch_copp_open_command {
 	struct apr_hdr hdr;
 	u16 flags;
@@ -574,6 +633,18 @@ struct adm_multi_ch_copp_open_command {
 	u8 dev_channel_mapping[8];
 } __packed;
 
+struct adm_multi_channel_copp_open_v3 {
+	struct apr_hdr hdr;
+	u16 flags;
+	u16 mode;
+	u16 endpoint_id1;
+	u16 endpoint_id2;
+	u32 topology_id;
+	u16 channel_config;
+	u16 bit_width;
+	u32 rate;
+	u8  dev_channel_mapping[8];
+};
 #define ADM_CMD_MEMORY_MAP				0x00010C30
 struct adm_cmd_memory_map{
 	struct apr_hdr	hdr;
@@ -618,18 +689,14 @@ struct adm_cmd_memory_unmap_regions{
 #define VPM_TX_DM_FLUENCE_COPP_TOPOLOGY			0x00010F72
 #define VPM_TX_QMIC_FLUENCE_COPP_TOPOLOGY		0x00010F75
 
-/* SRS TRUMEDIA GUIDS */
-/* topology */
-#define SRS_TRUMEDIA_TOPOLOGY_ID			0x00010D90
-/* module */
-#define SRS_TRUMEDIA_MODULE_ID				0x10005010
-/* parameters */
-#define SRS_TRUMEDIA_PARAMS				0x10005011
-#define SRS_TRUMEDIA_PARAMS_WOWHD			0x10005012
-#define SRS_TRUMEDIA_PARAMS_CSHP			0x10005013
-#define SRS_TRUMEDIA_PARAMS_HPF				0x10005014
-#define SRS_TRUMEDIA_PARAMS_PEQ				0x10005015
-#define SRS_TRUMEDIA_PARAMS_HL				0x10005016
+#define LOWLATENCY_POPP_TOPOLOGY			0x00010C68
+#define LOWLATENCY_COPP_TOPOLOGY			0x00010312
+#define PCM_BITS_PER_SAMPLE				16
+
+#define ASM_OPEN_WRITE_PERF_MODE_BIT			(1<<28)
+#define ASM_OPEN_READ_PERF_MODE_BIT			(1<<29)
+#define ADM_MULTI_CH_COPP_OPEN_PERF_MODE_BIT		(1<<13)
+
 
 #define ASM_MAX_EQ_BANDS 12
 
@@ -741,6 +808,7 @@ struct adm_copp_open_respond {
 } __attribute__ ((packed));
 
 #define ADM_CMDRSP_MULTI_CHANNEL_COPP_OPEN               0x00010311
+#define ADM_CMDRSP_MULTI_CHANNEL_COPP_OPEN_V3            0x00010334
 
 
 #define ASM_STREAM_PRIORITY_NORMAL	0
@@ -905,7 +973,38 @@ struct asm_multi_channel_pcm_fmt_blk {
 				 * An unused channel is set to zero.
 				 */
 };
+struct asm_dts_enc_cfg {
+	uint32_t	sample_rate;
+	/*
+	* Samples at which input is to be encoded.
+	* Supported values:
+	* 44100 -- encode at 44.1 Khz
+	* 48000 -- encode at 48 Khz
+	*/
 
+	uint32_t	num_channels;
+	/*
+	* Number of channels for multi-channel encoding.
+	* Supported values: 1 to 6
+	*/
+
+	uint8_t		channel_mapping[6];
+	/*
+	* Channel array of size 16. Channel[i] mapping describes channel I.
+	* Each element i of the array describes channel I inside the buffer
+	* where num_channels. An unused channel is set to zero. Only first
+	* num_channels elements are valid
+
+	* Supported values:
+	* - # PCM_CHANNEL_L
+	* - # PCM_CHANNEL_R
+	* - # PCM_CHANNEL_C
+	* - # PCM_CHANNEL_LS
+	* - # PCM_CHANNEL_RS
+	* - # PCM_CHANNEL_LFE
+	*/
+
+};
 struct asm_adpcm_cfg {
 	u16 ch_cfg;
 	u16 bits_per_sample;
@@ -967,6 +1066,16 @@ struct asm_aac_cfg {
 	u16 ch_cfg;
 	u16 reserved;
 	u32 sample_rate;
+};
+
+struct asm_amrwbplus_cfg {
+	u32  size_bytes;
+	u32  version;
+	u32  num_channels;
+	u32  amr_band_mode;
+	u32  amr_dtx_mode;
+	u32  amr_frame_fmt;
+	u32  amr_lsf_idx;
 };
 
 struct asm_flac_cfg {
@@ -1088,6 +1197,7 @@ struct asm_encode_cfg_blk {
 		struct asm_sbc_read_cfg     sbc;
 		struct asm_amrwb_read_cfg   amrwb;
 		struct asm_multi_channel_pcm_fmt_blk      mpcm;
+		struct asm_dts_enc_cfg      dts;
 	} __attribute__((packed)) cfg;
 };
 
@@ -1102,6 +1212,7 @@ struct asm_frame_meta_info {
 
 /* Stream level commands */
 #define ASM_STREAM_CMD_OPEN_READ                         0x00010BCB
+#define ASM_STREAM_CMD_OPEN_READ_V2_1                    0x00010DB2
 struct asm_stream_cmd_open_read {
 	struct apr_hdr hdr;
 	u32            uMode;
@@ -1109,6 +1220,16 @@ struct asm_stream_cmd_open_read {
 	u32            pre_proc_top;
 	u32            format;
 } __attribute__((packed));
+
+struct asm_stream_cmd_open_read_v2_1 {
+	struct apr_hdr hdr;
+	u32            uMode;
+	u32            src_endpoint;
+	u32            pre_proc_top;
+	u32            format;
+	u16            bits_per_sample;
+	u16            reserved;
+} __packed;
 
 /* Supported formats */
 #define LINEAR_PCM   0x00010BE5
@@ -1132,6 +1253,7 @@ struct asm_stream_cmd_open_read {
 #define EAC3_DECODER 0x00010C3C
 #define DTS	0x00010D88
 #define DTS_LBR	0x00010DBB
+#define MP2          0x00010DBE
 #define ATRAC	0x00010D89
 #define MAT	0x00010D8A
 #define G711_ALAW_FS 0x00010BF7
@@ -1140,6 +1262,7 @@ struct asm_stream_cmd_open_read {
 #define MPEG4_MULTI_AAC 0x00010D86
 #define US_POINT_EPOS_FORMAT 0x00012310
 #define US_RAW_FORMAT        0x0001127C
+#define US_PROX_FORMAT       0x0001272B
 #define MULTI_CHANNEL_PCM    0x00010C66
 
 #define ASM_ENCDEC_SBCRATE         0x00010C13
@@ -1158,6 +1281,7 @@ struct asm_stream_cmd_open_read_compressed {
 } __packed;
 
 #define ASM_STREAM_CMD_OPEN_WRITE                        0x00010BCA
+#define ASM_STREAM_CMD_OPEN_WRITE_V2_1                   0x00010DB1
 struct asm_stream_cmd_open_write {
 	struct apr_hdr hdr;
 	u32            uMode;
@@ -1176,6 +1300,148 @@ struct asm_stream_cmd_open_write_compressed {
 	u32	flags;
 	u32	format;
 } __packed;
+#define ASM_STREAM_CMD_OPEN_TRANSCODE_LOOPBACK     0x00010DBA
+struct asm_stream_cmd_open_transcode_loopback {
+	struct apr_hdr hdr;
+	uint32_t	mode_flags;
+	/*
+	* All bits are reserved. Clients must set them to zero.
+	*/
+
+	uint32_t	src_format_id;
+	/*
+	* Specifies the media format of the input audio stream.
+
+	* Supported values:
+	* - #ASM_MEDIA_FMT_LINEAR_PCM
+	* - #ASM_MEDIA_FMT_MULTI_CHANNEL_PCM
+	*/
+
+	uint32_t	sink_format_id;
+	/*
+	* Specifies the media format of the output stream.
+
+	* Supported values:
+	* - #ASM_MEDIA_FMT_LINEAR_PCM
+	* - #ASM_MEDIA_FMT_MULTI_CHANNEL_PCM
+	* - #ASM_MEDIA_FMT_DTS
+	*/
+
+	uint32_t	audproc_topo_id;
+	/*
+	* Postprocessing topology ID, which specifies the topology (order of
+	* processing) of postprocessing algorithms.
+
+	* Supported values:
+	* - #ASM_STREAM_POSTPROC_TOPO_ID_DEFAULT
+	* - #ASM_STREAM_POSTPROC_TOPO_ID_PEAKMETER
+	* - #ASM_STREAM_POSTPROC_TOPO_ID_NONE
+	* - #ASM_STREAM_POSTPROC_TOPO_ID_MCH_PEAK_VOL
+	*/
+
+	uint16_t	src_endpoint_type;
+	/*
+	* Specifies the source endpoint that provides the input samples.
+
+	* Supported values:
+	* - 0 -- Tx device matrix or stream router
+	* (gateway to the hardware ports)
+	* - All other values are reserved
+
+	* Clients must set this field to zero. Otherwise, an error is returned.
+	*/
+
+	uint16_t	sink_endpoint_type;
+	/*
+	* Specifies the sink endpoint type.
+
+	* Supported values:
+	* - 0 -- Rx device matrix or stream router
+	* (gateway to the hardware ports)
+	* - All other values are reserved
+
+	* Clients must set this field to zero. Otherwise, an error is returned.
+	*/
+
+	uint16_t	bits_per_sample;
+	/*
+	* Number of bits per sample processed by the ASM modules.
+	* Supported values: 16, 24
+	*/
+
+	uint16_t	reserved;
+	/*
+	* This field must be set to zero.
+	*/
+} __packed;
+
+/*
+* ID of the DTS mix LFE channel to front channels parameter in the
+* #ASM_STREAM_CMD_SET_ENCDEC_PARAM command.
+* asm_dts_generic_param_t
+* ASM_PARAM_ID_DTS_MIX_LFE_TO_FRONT
+*/
+#define ASM_PARAM_ID_DTS_MIX_LFE_TO_FRONT                          0x00010DB6
+
+/*
+* ID of the DTS DRC ratio parameter in the
+* #ASM_STREAM_CMD_SET_ENCDEC_PARAM command.
+* asm_dts_generic_param_t
+* ASM_PARAM_ID_DTS_DRC_RATIO
+*/
+#define ASM_PARAM_ID_DTS_DRC_RATIO                                   0x00010DB7
+
+/*
+* ID of the DTS enable dialog normalization parameter in the
+* #ASM_STREAM_CMD_SET_ENCDEC_PARAM command.
+
+* asm_dts_generic_param_t
+* ASM_PARAM_ID_DTS_ENABLE_DIALNORM
+*/
+#define ASM_PARAM_ID_DTS_ENABLE_DIALNORM                             0x00010DB8
+
+/*
+* ID of the DTS enable parse REV2AUX parameter in the
+* #ASM_STREAM_CMD_SET_ENCDEC_PARAM command.
+* asm_dts_generic_param_t
+* ASM_PARAM_ID_DTS_ENABLE_PARSE_REV2AUX
+*/
+#define ASM_PARAM_ID_DTS_ENABLE_PARSE_REV2AUX                         0x00010DB9
+
+struct asm_dts_generic_param {
+	int32_t		generic_parameter;
+	/*
+	* #ASM_PARAM_ID_DTS_MIX_LFE_TO_FRONT:
+	* - if enabled, mixes LFE channel to front
+	* while downmixing (if necessary)
+	* - Supported values: 1-> enable, 0-> disable
+	* - Default: disabled
+
+	* #ASM_PARAM_ID_DTS_DRC_RATIO:
+	* - percentage of DRC ratio.
+	* - Supported values: 0-100
+	* - Default: 0, DRC is disabled.
+
+	* #ASM_PARAM_ID_DTS_ENABLE_DIALNORM:
+	* - flag to enable dialog normalization post processing.
+	* - Supported values: 1-> enable, 0-> disable.
+	* - Default: enabled.
+
+	* #ASM_PARAM_ID_DTS_ENABLE_PARSE_REV2AUX:
+	* - flag to enable parsing of rev2aux chunk in the bitstream.
+	* This chunk contains broadcast metadata.
+	* - Supported values: 1-> enable, 0-> disable.
+	* - Default: disabled.
+	*/
+};
+
+struct asm_stream_cmd_dts_dec_param {
+	struct apr_hdr hdr;
+	u32            param_id;
+	u32            param_size;
+	struct asm_dts_generic_param generic_param;
+} __packed;
+
 
 #define ASM_STREAM_CMD_OPEN_READWRITE                    0x00010BCC
 
@@ -1186,6 +1452,23 @@ struct asm_stream_cmd_open_read_write {
 	u32                write_format;
 	u32                read_format;
 } __attribute__((packed));
+
+#define ASM_STREAM_CMD_OPEN_LOOPBACK	0x00010D6E
+struct asm_stream_cmd_open_loopback {
+	struct apr_hdr         hdr;
+	u32                    mode_flags;
+/* Mode flags.
+ * Bit 0-31: reserved; client should set these bits to 0
+ */
+	u16                    src_endpointype;
+	/* Endpoint type. 0 = Tx Matrix */
+	u16                    sink_endpointype;
+	/* Endpoint type. 0 = Rx Matrix */
+	u32                    postprocopo_id;
+/* Postprocessor topology ID. Specifies the topology of
+ * postprocessing algorithms.
+ */
+} __packed;
 
 #define ADM_CMD_CONNECT_AFE_PORT 0x00010320
 #define ADM_CMD_DISCONNECT_AFE_PORT 0x00010321
@@ -1205,7 +1488,7 @@ struct adm_cmd_connect_afe_port_v2 {
 	u8	session_id; /*ASM session ID*/
 	u16	afe_port_id;
 	u32	num_channels;
-	u32	sampleing_rate;
+	u32	sampling_rate;
 } __packed;
 
 #define ASM_STREAM_CMD_SET_ENCDEC_PARAM                  0x00010C10
@@ -1245,6 +1528,17 @@ struct asm_stream_cmd_encdec_dualmono {
 	u32            param_id;
 	u32            param_size;
 	struct asm_dual_mono channel_map;
+} __packed;
+
+#define ASM_PARAM_ID_AAC_STEREO_MIX_COEFF_SELECTION_FLAG        0x00010DD8
+
+/* Structure for AAC decoder stereo coefficient setting. */
+
+struct asm_aac_stereo_mix_coeff_selection_param {
+	struct apr_hdr				hdr;
+	u32					param_id;
+	u32					param_size;
+	u32					aac_stereo_mix_coeff_flag;
 } __packed;
 
 #define ASM_ENCDEC_DEC_CHAN_MAP				 0x00010D82
@@ -1352,6 +1646,14 @@ struct asm_stream_cmd_read{
 	u32	uid;
 } __attribute__((packed));
 
+#define ASM_DATA_CMD_READ_COMPRESSED                     0x00010DBF
+struct asm_stream_cmd_read_compressed {
+	struct apr_hdr     hdr;
+	u32	buf_add;
+	u32	buf_size;
+	u32	uid;
+} __packed;
+
 #define ASM_DATA_CMD_MEDIA_FORMAT_UPDATE                 0x00010BDC
 #define ASM_DATA_EVENT_ENC_SR_CM_NOTIFY                  0x00010BDE
 struct asm_stream_media_format_update{
@@ -1369,6 +1671,7 @@ struct asm_stream_media_format_update{
 		struct asm_flac_cfg        flac_cfg;
 		struct asm_vorbis_cfg      vorbis_cfg;
 		struct asm_multi_channel_pcm_fmt_blk multi_ch_pcm_cfg;
+		struct asm_amrwbplus_cfg   amrwbplus_cfg;
 	} __attribute__((packed)) write_cfg;
 } __attribute__((packed));
 
@@ -1414,6 +1717,19 @@ struct asm_data_event_read_done{
 	u32            num_frames;
 	u32            id;
 } __attribute__((packed));
+
+#define ASM_DATA_EVENT_READ_COMPRESSED_DONE              0x00010DC0
+struct asm_data_event_read_compressed_done {
+	u32            status;
+	u32            buffer_add;
+	u32            enc_frame_size;
+	u32            offset;
+	u32            msw_ts;
+	u32            lsw_ts;
+	u32            flags;
+	u32            num_frames;
+	u32            id;
+} __packed;
 
 #define ASM_DATA_EVENT_SR_CM_CHANGE_NOTIFY               0x00010C65
 struct asm_data_event_sr_cm_change_notify {
@@ -1467,18 +1783,36 @@ struct asm_svc_cmdrsp_get_wallclock_time{
 #define ADSP_ENOTIMPL     0x00000011 /* Operation is not implemented. */
 #define ADSP_ENEEDMORE    0x00000012 /* Operation needs more data or resources*/
 
-/* SRS TRUMEDIA start */
-#define SRS_ID_GLOBAL	0x00000001
-#define SRS_ID_WOWHD	0x00000002
-#define SRS_ID_CSHP	0x00000003
-#define SRS_ID_HPF	0x00000004
-#define SRS_ID_PEQ	0x00000005
-#define SRS_ID_HL	0x00000006
+/* SRS TRUMEDIA GUIDS */
+#define SRS_TRUMEDIA_TOPOLOGY_ID    0x00010D90
+#define SRS_TRUMEDIA_MODULE_ID      0x10005010
+#define SRS_TRUMEDIA_PARAMS         0x10005011
+#define SRS_TRUMEDIA_PARAMS_WOWHD   0x10005012
+#define SRS_TRUMEDIA_PARAMS_CSHP    0x10005013
+#define SRS_TRUMEDIA_PARAMS_HPF     0x10005014
+#define SRS_TRUMEDIA_PARAMS_PEQ     0x10005015
+#define SRS_TRUMEDIA_PARAMS_HL      0x10005016
 
-#define SRS_CMD_UPLOAD		0x7FFF0000
-#define SRS_PARAM_INDEX_MASK	0x80000000
-#define SRS_PARAM_OFFSET_MASK	0x3FFF0000
-#define SRS_PARAM_VALUE_MASK	0x0000FFFF
+/* SRS STUDIO SOUND 3D GUIDS */
+#define SRS_SS3D_TOPOLOGY_ID        0x00010720
+#define SRS_SS3D_MODULE_ID          0x10005020
+#define SRS_SS3D_PARAMS             0x10005021
+#define SRS_SS3D_PARAMS_CTRL        0x10005022
+#define SRS_SS3D_PARAMS_FILTER      0x10005023
+
+/* SRS ALSA CMD MASKS */
+#define SRS_CMD_UPLOAD              0x7FFF0000
+#define SRS_PARAM_INDEX_MASK        0x80000000
+#define SRS_PARAM_OFFSET_MASK       0x3FFF0000
+#define SRS_PARAM_VALUE_MASK        0x0000FFFF
+
+/* SRS TRUMEDIA start */
+#define SRS_ID_GLOBAL               0x00000001
+#define SRS_ID_WOWHD                0x00000002
+#define SRS_ID_CSHP                 0x00000003
+#define SRS_ID_HPF                  0x00000004
+#define SRS_ID_PEQ                  0x00000005
+#define SRS_ID_HL                   0x00000006
 
 struct srs_trumedia_params_GLOBAL {
 	uint8_t                  v1;
@@ -1556,7 +1890,40 @@ struct srs_trumedia_params {
 	struct srs_trumedia_params_PEQ		peq;
 	struct srs_trumedia_params_HL		hl;
 } __packed;
+
 int srs_trumedia_open(int port_id, int srs_tech_id, void *srs_params);
 /* SRS TruMedia end */
 
+/* SRS Studio Sound 3D start */
+#define SRS_ID_SS3D_GLOBAL	0x00000001
+#define SRS_ID_SS3D_CTRL	0x00000002
+#define SRS_ID_SS3D_FILTER	0x00000003
+
+struct srs_SS3D_params_GLOBAL {
+	uint8_t                  v1;
+	uint8_t                  v2;
+	uint8_t                  v3;
+	uint8_t                  v4;
+	uint8_t                  v5;
+	uint8_t                  v6;
+	uint8_t                  v7;
+	uint8_t                  v8;
+} __packed;
+
+struct srs_SS3D_ctrl_params {
+	uint8_t				v[236];
+} __packed;
+
+struct srs_SS3D_filter_params {
+	uint8_t				v[28 + 2752];
+} __packed;
+
+struct srs_SS3D_params {
+	struct srs_SS3D_params_GLOBAL   global;
+	struct srs_SS3D_ctrl_params     ss3d;
+	struct srs_SS3D_filter_params   ss3d_f;
+} __packed;
+
+int srs_ss3d_open(int port_id, int srs_tech_id, void *srs_params);
+/* SRS Studio Sound 3D end */
 #endif /*_APR_AUDIO_H_*/

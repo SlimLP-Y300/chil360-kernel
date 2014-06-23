@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,7 @@
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/uaccess.h>
-#include <linux/android_pmem.h>
+
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>

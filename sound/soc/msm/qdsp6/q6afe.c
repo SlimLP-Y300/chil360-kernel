@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,7 @@ struct afe_ctl {
 		uint32_t token, uint32_t *payload, void *priv);
 	void *tx_private_data;
 	void *rx_private_data;
+	u16 dtmf_gen_rx_portid;
 };
 
 static struct afe_ctl this_afe;
@@ -91,6 +92,7 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			case AFE_SERVICE_CMD_MEMORY_MAP:
 			case AFE_SERVICE_CMD_MEMORY_UNMAP:
 			case AFE_SERVICE_CMD_UNREG_RTPORT:
+			case AFE_PORTS_CMD_DTMF_CTL:
 				atomic_set(&this_afe.state, 0);
 				wake_up(&this_afe.wait);
 				break;
@@ -156,6 +158,7 @@ int afe_get_port_type(u16 port_id)
 	case VOICE_PLAYBACK_TX:
 	case RT_PROXY_PORT_001_RX:
 	case SLIMBUS_4_RX:
+	case PSEUDOPORT_01:
 		ret = MSM_AFE_PORT_TYPE_RX;
 		break;
 
@@ -225,6 +228,7 @@ int afe_validate_port(u16 port_id)
 	case RT_PROXY_PORT_001_TX:
 	case SLIMBUS_4_RX:
 	case SLIMBUS_4_TX:
+	case PSEUDOPORT_01:
 	{
 		ret = 0;
 		break;
@@ -295,6 +299,7 @@ int afe_get_port_index(u16 port_id)
 	case RT_PROXY_PORT_001_TX: return IDX_RT_PROXY_PORT_001_TX;
 	case SLIMBUS_4_RX: return IDX_SLIMBUS_4_RX;
 	case SLIMBUS_4_TX: return IDX_SLIMBUS_4_TX;
+	case PSEUDOPORT_01: return IDX_PSEUDOPORT_01;
 
 	default: return -EINVAL;
 	}
@@ -330,6 +335,9 @@ int afe_sizeof_cfg_cmd(u16 port_id)
 	case RT_PROXY_PORT_001_RX:
 	case RT_PROXY_PORT_001_TX:
 		ret_size = SIZEOF_CFG_CMD(afe_port_rtproxy_cfg);
+		break;
+	case PSEUDOPORT_01:
+		ret_size = SIZEOF_CFG_CMD(afe_port_pseudo_cfg);
 		break;
 	case PCM_RX:
 	case PCM_TX:
@@ -505,6 +513,11 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 				config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
 			else
 				config.hdr.opcode = AFE_PORT_CMD_I2S_CONFIG;
+		break;
+		case PSEUDOPORT_01:
+			config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
+			pr_debug("%s, config, opcode=%x\n", __func__,
+					config.hdr.opcode);
 		break;
 		default:
 			config.hdr.opcode = AFE_PORT_AUDIO_IF_CONFIG;
@@ -827,7 +840,7 @@ int afe_loopback_cfg(u16 enable, u16 dst_port, u16 src_port, u16 mode)
 	ret = wait_event_timeout(this_afe.wait,
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -905,7 +918,7 @@ int afe_loopback_gain(u16 port_id, u16 volume)
 	ret = wait_event_timeout(this_afe.wait,
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -966,7 +979,7 @@ int afe_apply_gain(u16 port_id, u16 gain)
 	ret = wait_event_timeout(this_afe.wait,
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -1574,7 +1587,7 @@ static ssize_t afe_debug_write(struct file *filp,
 				goto afe_error;
 			}
 
-			if (param[1] < 0 || param[1] > 100) {
+			if (param[1] > 100) {
 				pr_err("%s: Error, volume shoud be 0 to 100"
 					" percentage param = %lu\n",
 					__func__, param[1]);
@@ -1610,6 +1623,83 @@ static const struct file_operations afe_debug_fops = {
 	.write = afe_debug_write
 };
 #endif
+
+void afe_set_dtmf_gen_rx_portid(u16 port_id, int set)
+{
+	if (set)
+		this_afe.dtmf_gen_rx_portid = port_id;
+	else if (this_afe.dtmf_gen_rx_portid == port_id)
+		this_afe.dtmf_gen_rx_portid = -1;
+}
+
+int afe_dtmf_generate_rx(int64_t duration_in_ms,
+			 uint16_t high_freq,
+			 uint16_t low_freq, uint16_t gain)
+{
+	int ret = 0;
+	struct afe_dtmf_generation_command cmd_dtmf;
+
+	pr_debug("%s: DTMF AFE Gen\n", __func__);
+
+	if (afe_validate_port(this_afe.dtmf_gen_rx_portid) < 0) {
+		pr_err("%s: Failed : Invalid Port id = %d\n",
+		       __func__, this_afe.dtmf_gen_rx_portid);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	if (this_afe.apr == NULL) {
+		this_afe.apr = apr_register("ADSP", "AFE", afe_callback,
+					    0xFFFFFFFF, &this_afe);
+		pr_debug("%s: Register AFE\n", __func__);
+		if (this_afe.apr == NULL) {
+			pr_err("%s: Unable to register AFE\n", __func__);
+			ret = -ENODEV;
+			return ret;
+		}
+	}
+
+	pr_debug("dur=%lld: hfreq=%d lfreq=%d gain=%d portid=%x\n",
+		duration_in_ms, high_freq, low_freq, gain,
+		this_afe.dtmf_gen_rx_portid);
+
+	cmd_dtmf.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
+				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
+	cmd_dtmf.hdr.pkt_size = sizeof(cmd_dtmf);
+	cmd_dtmf.hdr.src_port = 0;
+	cmd_dtmf.hdr.dest_port = 0;
+	cmd_dtmf.hdr.token = 0;
+	cmd_dtmf.hdr.opcode = AFE_PORTS_CMD_DTMF_CTL;
+	cmd_dtmf.duration_in_ms = duration_in_ms;
+	cmd_dtmf.high_freq = high_freq;
+	cmd_dtmf.low_freq = low_freq;
+	cmd_dtmf.gain = gain;
+	cmd_dtmf.num_ports = 1;
+	cmd_dtmf.port_ids = this_afe.dtmf_gen_rx_portid;
+
+	atomic_set(&this_afe.state, 1);
+	ret = apr_send_pkt(this_afe.apr, (uint32_t *) &cmd_dtmf);
+	if (ret < 0) {
+		pr_err("%s: AFE DTMF failed for num_ports:%d ids:%x\n",
+		       __func__, cmd_dtmf.num_ports, cmd_dtmf.port_ids);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+
+	ret = wait_event_timeout(this_afe.wait,
+		(atomic_read(&this_afe.state) == 0),
+			msecs_to_jiffies(TIMEOUT_MS));
+	if (ret < 0) {
+		pr_err("%s: wait_event timeout\n", __func__);
+		ret = -EINVAL;
+		goto fail_cmd;
+	}
+	return 0;
+
+fail_cmd:
+	return ret;
+}
+
 int afe_sidetone(u16 tx_port_id, u16 rx_port_id, u16 enable, uint16_t gain)
 {
 	struct afe_port_sidetone_command cmd_sidetone;
@@ -1641,7 +1731,7 @@ int afe_sidetone(u16 tx_port_id, u16 rx_port_id, u16 enable, uint16_t gain)
 	ret = wait_event_timeout(this_afe.wait,
 		(atomic_read(&this_afe.state) == 0),
 			msecs_to_jiffies(TIMEOUT_MS));
-	if (ret < 0) {
+	if (!ret) {
 		pr_err("%s: wait_event timeout\n", __func__);
 		ret = -EINVAL;
 		goto fail_cmd;
@@ -1700,6 +1790,9 @@ int afe_close(int port_id)
 		goto fail_cmd;
 	}
 	pr_debug("%s: port_id=%d\n", __func__, port_id);
+	if ((port_id == RT_PROXY_DAI_001_RX) ||
+		(port_id == RT_PROXY_DAI_002_TX))
+		return 0;
 	port_id = afe_convert_virtual_to_portid(port_id);
 
 	stop.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
@@ -1744,6 +1837,7 @@ static int __init afe_init(void)
 	atomic_set(&this_afe.state, 0);
 	atomic_set(&this_afe.status, 0);
 	this_afe.apr = NULL;
+	this_afe.dtmf_gen_rx_portid = -1;
 #ifdef CONFIG_DEBUG_FS
 	debugfs_afelb = debugfs_create_file("afe_loopback",
 	S_IFREG | S_IWUGO, NULL, (void *) "afe_loopback",

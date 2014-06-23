@@ -2,7 +2,7 @@
  *  Routines for control of the CS8427 via i2c bus
  *  IEC958 (S/PDIF) receiver & transmitter by Cirrus Logic
  *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
- *  Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ *  Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2 and
@@ -103,8 +103,37 @@ static int cs8427_i2c_write_device(struct cs8427 *cs8427_i2c,
 static int cs8427_i2c_write(struct cs8427 *chip, unsigned short reg,
 			 int bytes, void *src)
 {
-	return cs8427_i2c_write_device(chip, reg, src, bytes);
+	int ret = 0, err = 0;
+	struct cs8427_platform_data *pdata = chip->client->dev.platform_data;
+	/*
+	 * enable the 100KHz level shifter to communicate
+	 * with CS8427 chip
+	 */
+	if (pdata->enable) {
+		err = pdata->enable(1, pdata->ls_gpio);
+		if (err < 0) {
+			dev_err(&chip->client->dev,
+				"failed to enable the level shifter\n");
+			return err;
+		}
+	}
+	ret = cs8427_i2c_write_device(chip, reg, src, bytes);
+
+	/*
+	 * Disable the 100KHz level shifter to communicate
+	 * with CS8427 chip
+	 */
+	if (pdata->enable) {
+		err = pdata->enable(0, pdata->ls_gpio);
+		if (err < 0) {
+			dev_err(&chip->client->dev,
+				"failed to disable the level shifter\n");
+			return err;
+		}
+	}
+	return ret;
 }
+
 static int cs8427_i2c_read_device(struct cs8427 *cs8427_i2c,
 				unsigned short reg,
 				  int bytes, unsigned char *dest)
@@ -156,16 +185,45 @@ static int cs8427_i2c_read(struct cs8427 *chip,
 				unsigned short reg,
 				int bytes, void *dest)
 {
-	return cs8427_i2c_read_device(chip, reg,
+	u32 err = 0, ret = 0;
+	struct cs8427_platform_data *pdata = chip->client->dev.platform_data;
+	/*
+	 * enable the 100KHz level shifter to communicate
+	 * with CS8427 chip
+	 */
+	if (pdata->enable) {
+		err = pdata->enable(1, pdata->ls_gpio);
+		if (err < 0) {
+			dev_err(&chip->client->dev,
+				"failed to enable the level shifter\n");
+			return err;
+		}
+	}
+	ret = cs8427_i2c_read_device(chip, reg,
 					bytes, dest);
+
+	/*
+	 * Disable the 100KHz level shifter to communicate
+	 * with CS8427 chip
+	 */
+	if (pdata->enable) {
+		err = pdata->enable(0, pdata->ls_gpio);
+		if (err < 0) {
+			dev_err(&chip->client->dev,
+				"failed to disable the level shifter\n");
+			return err;
+		}
+	}
+	return ret;
 }
 
 static int cs8427_i2c_sendbytes(struct cs8427 *chip,
 			char *reg_addr, char *data,
 			int bytes)
 {
-	u32 ret = 0;
+	u32 ret = 0, err = 0;
 	u8 i = 0;
+	struct cs8427_platform_data *pdata = chip->client->dev.platform_data;
 
 	if (!chip) {
 		pr_err("%s, invalid device info\n", __func__);
@@ -176,6 +234,18 @@ static int cs8427_i2c_sendbytes(struct cs8427 *chip,
 			"invalid data pointer\n", __func__);
 		return -EINVAL;
 	}
+	/*
+	 * enable the 100KHz level shifter to communicate
+	 * with CS8427 chip
+	 */
+	if (pdata->enable) {
+		err = pdata->enable(1, pdata->ls_gpio);
+		if (err < 0) {
+			dev_err(&chip->client->dev,
+				"failed to enable the level shifter\n");
+			return err;
+		}
+	}
 	for (i = 0; i < bytes; i++) {
 		ret = cs8427_i2c_write_device(chip, (*reg_addr + i),
 						&data[i], 1);
@@ -184,6 +254,19 @@ static int cs8427_i2c_sendbytes(struct cs8427 *chip,
 				"%s: failed to send the data to"
 				" cs8427 chip\n", __func__);
 			break;
+		}
+	}
+
+	/*
+	 * Disable the 100KHz level shifter to communicate
+	 * with CS8427 chip
+	 */
+	if (pdata->enable) {
+		err = pdata->enable(0, pdata->ls_gpio);
+		if (err < 0) {
+			dev_err(&chip->client->dev,
+				"failed to disable the level shifter\n");
+			return err;
 		}
 	}
 	return i;
@@ -651,12 +734,12 @@ int poweron_cs8427(struct cs8427 *chip)
 	struct cs8427_platform_data *pdata = chip->client->dev.platform_data;
 	int ret = 0;
 
-	/*enable the 100KHz level shifter*/
 	if (pdata->enable) {
-		ret = pdata->enable(1);
+		ret = gpio_request(pdata->ls_gpio, "cs8427 ls");
 		if (ret < 0) {
 			dev_err(&chip->client->dev,
-				"failed to enable the level shifter\n");
+				 "failed to request the gpio %d\n",
+					pdata->reset_gpio);
 			return ret;
 		}
 	}
@@ -740,7 +823,7 @@ static __devinit int cs8427_i2c_probe(struct i2c_client *client,
 	unsigned char buf[CHANNEL_STATUS_SIZE];
 	unsigned char val = 0;
 	char addr = 0;
-	unsigned int reset_timeout = 100;
+	unsigned int reset_timeout = 1;
 	int ret = 0;
 	struct cs8427 *chip;
 
@@ -855,8 +938,10 @@ static int __devexit cs8427_remove(struct i2c_client *client)
 	}
 	pdata = chip->client->dev.platform_data;
 	gpio_free(pdata->reset_gpio);
-	if (pdata->enable)
-		pdata->enable(0);
+	if (pdata->enable) {
+		pdata->enable(0, pdata->ls_gpio);
+		gpio_free(pdata->ls_gpio);
+	}
 	kfree(chip);
 	return 0;
 }

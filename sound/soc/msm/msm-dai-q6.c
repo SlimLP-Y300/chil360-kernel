@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -465,6 +465,9 @@ static int msm_dai_q6_cdc_hw_params(struct snd_pcm_hw_params *params,
 	dai_data->channels = params_channels(params);
 	switch (dai_data->channels) {
 	case 2:
+	case 4:
+	case 6:
+	case 8:
 		dai_data->port_config.mi2s.channel = MSM_AFE_STEREO;
 		break;
 	case 1:
@@ -657,6 +660,24 @@ static int msm_dai_q6_afe_rtproxy_hw_params(struct snd_pcm_hw_params *params,
 	return 0;
 }
 
+static int msm_dai_q6_pseudo_hw_params(struct snd_pcm_hw_params *params,
+				struct snd_soc_dai *dai)
+{
+	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
+
+	dai_data->rate = params_rate(params);
+	dai_data->channels = params_channels(params) > 6 ?
+				params_channels(params) : 6;
+
+	dai_data->port_config.pseudo.bit_width = 16;
+	dai_data->port_config.pseudo.num_channels =
+			dai_data->channels;
+	dai_data->port_config.pseudo.data_format = 0;
+	dai_data->port_config.pseudo.timing_mode = 1;
+	dai_data->port_config.pseudo.reserved = 16;
+	return 0;
+}
+
 /* Current implementation assumes hw_param is called once
  * This may not be the case but what to do when ADM and AFE
  * port are already opened and parameter changes
@@ -671,6 +692,7 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 	case PRIMARY_I2S_TX:
 	case PRIMARY_I2S_RX:
 	case SECONDARY_I2S_RX:
+	case SECONDARY_I2S_TX:
 		rc = msm_dai_q6_cdc_hw_params(params, dai, substream->stream);
 		break;
 
@@ -699,6 +721,9 @@ static int msm_dai_q6_hw_params(struct snd_pcm_substream *substream,
 	case RT_PROXY_DAI_002_RX:
 		rc = msm_dai_q6_afe_rtproxy_hw_params(params, dai);
 		break;
+	case PSEUDOPORT_01:
+		rc = msm_dai_q6_pseudo_hw_params(params, dai);
+		break;
 	case VOICE_PLAYBACK_TX:
 	case VOICE_RECORD_RX:
 	case VOICE_RECORD_TX:
@@ -718,15 +743,14 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 {
 	int rc = 0;
 
+	struct msm_dai_q6_dai_data *dai_data = dev_get_drvdata(dai->dev);
 	mutex_lock(&aux_pcm_mutex);
-
-	if (aux_pcm_count == 0) {
-		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count is 0. Just"
-				" return\n", __func__, dai->id);
+	dev_dbg(dai->dev, "%s dai->id = %d", __func__, dai->id);
+	if (!test_bit(STATUS_PORT_STARTED, dai_data->status_mask)) {
 		mutex_unlock(&aux_pcm_mutex);
 		return;
 	}
-
+	clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
 	aux_pcm_count--;
 
 	if (aux_pcm_count > 0) {
@@ -841,24 +865,13 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 	unsigned long pcm_clk_rate;
 
 	mutex_lock(&aux_pcm_mutex);
-
-	if (aux_pcm_count == 2) {
-		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count is 2. Just"
-			" return.\n", __func__, dai->id);
-		mutex_unlock(&aux_pcm_mutex);
-		return 0;
-	} else if (aux_pcm_count > 2) {
-		dev_err(dai->dev, "%s(): ERROR: dai->id %d"
-			" aux_pcm_count = %d > 2\n",
-			__func__, dai->id, aux_pcm_count);
-		mutex_unlock(&aux_pcm_mutex);
-		return 0;
-	}
-
+	set_bit(STATUS_PORT_STARTED,
+			dai_data->status_mask);
+	dev_dbg(dai->dev, "%s dai->id = %d", __func__, dai->id);
 	aux_pcm_count++;
-	if (aux_pcm_count == 2)  {
-		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count = %d after "
-			" increment\n", __func__, dai->id, aux_pcm_count);
+	if (aux_pcm_count >= 2) {
+		dev_dbg(dai->dev, "%s(): dai->id %d aux_pcm_count = %d >= 2\n",
+			__func__, dai->id, aux_pcm_count);
 		mutex_unlock(&aux_pcm_mutex);
 		return 0;
 	}
@@ -1376,6 +1389,7 @@ static int msm_dai_q6_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	case PRIMARY_I2S_TX:
 	case PRIMARY_I2S_RX:
 	case SECONDARY_I2S_RX:
+	case SECONDARY_I2S_TX:
 		rc = msm_dai_q6_cdc_set_fmt(dai, fmt);
 		break;
 	default:
@@ -1791,7 +1805,7 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_2_tx_dai = {
 		SNDRV_PCM_RATE_192000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 		.channels_min = 1,
-		.channels_max = 4,
+		.channels_max = 8,
 		.rate_min =     8000,
 		.rate_max =	192000,
 	},
@@ -1814,6 +1828,20 @@ static struct snd_soc_dai_driver msm_dai_q6_slimbus_3_rx_dai = {
 	.probe = msm_dai_q6_dai_probe,
 	.remove = msm_dai_q6_dai_remove,
 };
+static struct snd_soc_dai_driver msm_dai_q6_pseudo_dai = {
+	.playback = {
+		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |
+		SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+		.channels_min = 1,
+		.channels_max = 6,
+		.rate_min = 8000,
+		.rate_max = 48000,
+	},
+	.ops = &msm_dai_q6_ops,
+	.probe = msm_dai_q6_dai_probe,
+	.remove = msm_dai_q6_dai_remove,
+};
 
 /* To do: change to register DAIs as batch */
 static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
@@ -1828,6 +1856,7 @@ static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_i2s_rx_dai);
 		break;
 	case PRIMARY_I2S_TX:
+	case SECONDARY_I2S_TX:
 		rc = snd_soc_register_dai(&pdev->dev, &msm_dai_q6_i2s_tx_dai);
 		break;
 	case PCM_RX:
@@ -1908,6 +1937,10 @@ static __devinit int msm_dai_q6_dev_probe(struct platform_device *pdev)
 	case VOICE_RECORD_TX:
 		rc = snd_soc_register_dai(&pdev->dev,
 						&msm_dai_q6_incall_record_dai);
+		break;
+	case PSEUDOPORT_01:
+		rc = snd_soc_register_dai(&pdev->dev,
+					&msm_dai_q6_pseudo_dai);
 		break;
 	default:
 		rc = -ENODEV;

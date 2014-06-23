@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,11 +11,13 @@
  */
 #ifndef _MSM_PCM_VOICE_H
 #define _MSM_PCM_VOICE_H
-#include <sound/apr_audio.h>
+#include <sound/apr_audio-v2.h>
 
 enum {
 	VOICE_SESSION_INDEX,
 	VOLTE_SESSION_INDEX,
+	VOICE2_SESSION_INDEX,
+	QCHAT_SESSION_INDEX,
 	VOICE_SESSION_INDEX_MAX,
 };
 

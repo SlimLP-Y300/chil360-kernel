@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -190,6 +190,26 @@ struct anc_header {
 
 extern int sitar_mclk_enable(struct snd_soc_codec *codec, int mclk_enable,
 							 bool dapm);
+
+/* Number of input and output Slimbus ports
+ */
+enum {
+	SITAR_RX1 = 0,
+	SITAR_RX2,
+	SITAR_RX3,
+	SITAR_RX4,
+	SITAR_RX5,
+	SITAR_RX_MAX,
+};
+
+enum {
+	SITAR_TX1 = 0,
+	SITAR_TX2,
+	SITAR_TX3,
+	SITAR_TX4,
+	SITAR_TX5,
+	SITAR_TX_MAX,
+};
 
 extern void *sitar_mbhc_cal_btn_det_mp(const struct sitar_mbhc_btn_detect_cfg
 				       *btn_det,

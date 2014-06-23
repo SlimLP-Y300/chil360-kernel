@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +44,7 @@ enum tabla_micbias_num {
 	TABLA_MICBIAS2,
 	TABLA_MICBIAS3,
 	TABLA_MICBIAS4,
+	TABLA_NUM_MICBIAS,
 };
 
 enum tabla_pid_current {
@@ -176,8 +177,10 @@ struct tabla_mbhc_config {
 	unsigned int gpio;
 	unsigned int gpio_irq;
 	int gpio_level_insert;
+	bool detect_extn_cable;
 	/* swap_gnd_mic returns true if extern GND/MIC swap switch toggled */
 	bool (*swap_gnd_mic) (struct snd_soc_codec *);
+	bool micbias_always_on;
 };
 
 extern int tabla_hs_detect(struct snd_soc_codec *codec,
@@ -250,4 +253,30 @@ extern void *tabla_mbhc_cal_btn_det_mp(const struct tabla_mbhc_btn_detect_cfg
 	    (cfg_ptr->_n_rload * (sizeof(cfg_ptr->_rload[0]) + \
 				 sizeof(cfg_ptr->_alpha[0]))))
 
+
+/* Number of input and output Slimbus port */
+enum {
+	TABLA_RX1 = 0,
+	TABLA_RX2,
+	TABLA_RX3,
+	TABLA_RX4,
+	TABLA_RX5,
+	TABLA_RX6,
+	TABLA_RX7,
+	TABLA_RX_MAX,
+};
+
+enum {
+	TABLA_TX1 = 0,
+	TABLA_TX2,
+	TABLA_TX3,
+	TABLA_TX4,
+	TABLA_TX5,
+	TABLA_TX6,
+	TABLA_TX7,
+	TABLA_TX8,
+	TABLA_TX9,
+	TABLA_TX10,
+	TABLA_TX_MAX,
+};
 

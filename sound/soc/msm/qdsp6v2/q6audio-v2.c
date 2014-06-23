@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,8 +24,14 @@ int q6audio_get_port_index(u16 port_id)
 	switch (port_id) {
 	case PRIMARY_I2S_RX: return IDX_PRIMARY_I2S_RX;
 	case PRIMARY_I2S_TX: return IDX_PRIMARY_I2S_TX;
-	case PCM_RX: return IDX_PCM_RX;
-	case PCM_TX: return IDX_PCM_TX;
+	case AFE_PORT_ID_PRIMARY_PCM_RX:
+		return IDX_AFE_PORT_ID_PRIMARY_PCM_RX;
+	case AFE_PORT_ID_PRIMARY_PCM_TX:
+		return IDX_AFE_PORT_ID_PRIMARY_PCM_TX;
+	case AFE_PORT_ID_SECONDARY_PCM_RX:
+		return IDX_AFE_PORT_ID_SECONDARY_PCM_RX;
+	case AFE_PORT_ID_SECONDARY_PCM_TX:
+		return IDX_AFE_PORT_ID_SECONDARY_PCM_TX;
 	case SECONDARY_I2S_RX: return IDX_SECONDARY_I2S_RX;
 	case SECONDARY_I2S_TX: return IDX_SECONDARY_I2S_TX;
 	case MI2S_RX: return IDX_MI2S_RX;
@@ -37,10 +43,15 @@ int q6audio_get_port_index(u16 port_id)
 	case VOICE_RECORD_RX: return IDX_VOICE_RECORD_RX;
 	case VOICE_RECORD_TX: return IDX_VOICE_RECORD_TX;
 	case VOICE_PLAYBACK_TX: return IDX_VOICE_PLAYBACK_TX;
+	case VOICE2_PLAYBACK_TX: return IDX_VOICE2_PLAYBACK_TX;
 	case SLIMBUS_0_RX: return IDX_SLIMBUS_0_RX;
 	case SLIMBUS_0_TX: return IDX_SLIMBUS_0_TX;
 	case SLIMBUS_1_RX: return IDX_SLIMBUS_1_RX;
 	case SLIMBUS_1_TX: return IDX_SLIMBUS_1_TX;
+	case SLIMBUS_2_RX: return IDX_SLIMBUS_2_RX;
+	case SLIMBUS_2_TX: return IDX_SLIMBUS_2_TX;
+	case SLIMBUS_4_TX: return IDX_SLIMBUS_4_TX;
+	case SLIMBUS_5_TX: return IDX_SLIMBUS_5_TX;
 	case INT_BT_SCO_RX: return IDX_INT_BT_SCO_RX;
 	case INT_BT_SCO_TX: return IDX_INT_BT_SCO_TX;
 	case INT_BT_A2DP_RX: return IDX_INT_BT_A2DP_RX;
@@ -48,6 +59,22 @@ int q6audio_get_port_index(u16 port_id)
 	case INT_FM_TX: return IDX_INT_FM_TX;
 	case RT_PROXY_PORT_001_RX: return IDX_RT_PROXY_PORT_001_RX;
 	case RT_PROXY_PORT_001_TX: return IDX_RT_PROXY_PORT_001_TX;
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
+		return IDX_AFE_PORT_ID_PRIMARY_MI2S_RX;
+	case AFE_PORT_ID_PRIMARY_MI2S_TX:
+		return IDX_AFE_PORT_ID_PRIMARY_MI2S_TX;
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
+		return IDX_AFE_PORT_ID_QUATERNARY_MI2S_RX;
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
+		return IDX_AFE_PORT_ID_QUATERNARY_MI2S_TX;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX:
+		return IDX_AFE_PORT_ID_SECONDARY_MI2S_RX;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX:
+		return IDX_AFE_PORT_ID_SECONDARY_MI2S_TX;
+	case AFE_PORT_ID_TERTIARY_MI2S_RX:
+		return IDX_AFE_PORT_ID_TERTIARY_MI2S_RX;
+	case AFE_PORT_ID_TERTIARY_MI2S_TX:
+		return IDX_AFE_PORT_ID_TERTIARY_MI2S_TX;
 
 	default: return -EINVAL;
 	}
@@ -56,10 +83,16 @@ int q6audio_get_port_index(u16 port_id)
 int q6audio_get_port_id(u16 port_id)
 {
 	switch (port_id) {
-	case PRIMARY_I2S_RX: return AFE_PORT_ID_PRIMARY_MI2S_RX;
-	case PRIMARY_I2S_TX: return AFE_PORT_ID_PRIMARY_MI2S_TX;
-	case PCM_RX: return AFE_PORT_ID_PRIMARY_PCM_RX;
-	case PCM_TX: return AFE_PORT_ID_PRIMARY_PCM_TX;
+	case PRIMARY_I2S_RX: return PRIMARY_I2S_RX;
+	case PRIMARY_I2S_TX: return PRIMARY_I2S_TX;
+	case AFE_PORT_ID_PRIMARY_PCM_RX:
+			return AFE_PORT_ID_PRIMARY_PCM_RX;
+	case AFE_PORT_ID_PRIMARY_PCM_TX:
+			return AFE_PORT_ID_PRIMARY_PCM_TX;
+	case AFE_PORT_ID_SECONDARY_PCM_RX:
+			return AFE_PORT_ID_SECONDARY_PCM_RX;
+	case AFE_PORT_ID_SECONDARY_PCM_TX:
+			return AFE_PORT_ID_SECONDARY_PCM_TX;
 	case SECONDARY_I2S_RX: return AFE_PORT_ID_SECONDARY_MI2S_RX;
 	case SECONDARY_I2S_TX: return AFE_PORT_ID_SECONDARY_MI2S_TX;
 	case MI2S_RX: return AFE_PORT_ID_PRIMARY_MI2S_RX;
@@ -71,10 +104,15 @@ int q6audio_get_port_id(u16 port_id)
 	case VOICE_RECORD_RX: return AFE_PORT_ID_VOICE_RECORD_RX;
 	case VOICE_RECORD_TX: return AFE_PORT_ID_VOICE_RECORD_TX;
 	case VOICE_PLAYBACK_TX: return AFE_PORT_ID_VOICE_PLAYBACK_TX;
+	case VOICE2_PLAYBACK_TX: return AFE_PORT_ID_VOICE2_PLAYBACK_TX;
 	case SLIMBUS_0_RX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_0_RX;
 	case SLIMBUS_0_TX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_0_TX;
 	case SLIMBUS_1_RX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_1_RX;
 	case SLIMBUS_1_TX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_1_TX;
+	case SLIMBUS_2_RX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_2_RX;
+	case SLIMBUS_2_TX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_2_TX;
+	case SLIMBUS_4_TX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_4_TX;
+	case SLIMBUS_5_TX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_5_TX;
 	case INT_BT_SCO_RX: return AFE_PORT_ID_INTERNAL_BT_SCO_RX;
 	case INT_BT_SCO_TX: return AFE_PORT_ID_INTERNAL_BT_SCO_TX;
 	case INT_BT_A2DP_RX: return AFE_PORT_ID_INTERNAL_BT_A2DP_RX;
@@ -82,8 +120,25 @@ int q6audio_get_port_id(u16 port_id)
 	case INT_FM_TX: return AFE_PORT_ID_INTERNAL_FM_TX;
 	case RT_PROXY_PORT_001_RX: return AFE_PORT_ID_RT_PROXY_PORT_001_RX;
 	case RT_PROXY_PORT_001_TX: return AFE_PORT_ID_RT_PROXY_PORT_001_TX;
-
-	default: return -EINVAL;
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
+			     return AFE_PORT_ID_PRIMARY_MI2S_RX;
+	case AFE_PORT_ID_PRIMARY_MI2S_TX:
+			     return AFE_PORT_ID_PRIMARY_MI2S_TX;
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
+			     return AFE_PORT_ID_QUATERNARY_MI2S_RX;
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
+			     return AFE_PORT_ID_QUATERNARY_MI2S_TX;
+	case AFE_PORT_ID_SECONDARY_MI2S_RX:
+			     return AFE_PORT_ID_SECONDARY_MI2S_RX;
+	case AFE_PORT_ID_SECONDARY_MI2S_TX:
+			     return AFE_PORT_ID_SECONDARY_MI2S_TX;
+	case AFE_PORT_ID_TERTIARY_MI2S_RX:
+			     return AFE_PORT_ID_TERTIARY_MI2S_RX;
+	case AFE_PORT_ID_TERTIARY_MI2S_TX:
+			     return AFE_PORT_ID_TERTIARY_MI2S_TX;
+	default:
+		pr_warn("%s: Invalid port_id %d\n", __func__, port_id);
+		return -EINVAL;
 	}
 }
 int q6audio_convert_virtual_to_portid(u16 port_id)
@@ -107,6 +162,37 @@ int q6audio_convert_virtual_to_portid(u16 port_id)
 	return ret;
 }
 
+int q6audio_is_digital_pcm_interface(u16 port_id)
+{
+	int ret = 0;
+
+	switch (port_id) {
+	case PRIMARY_I2S_RX:
+	case PRIMARY_I2S_TX:
+	case AFE_PORT_ID_PRIMARY_PCM_RX:
+	case AFE_PORT_ID_PRIMARY_PCM_TX:
+	case AFE_PORT_ID_SECONDARY_PCM_RX:
+	case AFE_PORT_ID_SECONDARY_PCM_TX:
+	case SECONDARY_I2S_RX:
+	case SECONDARY_I2S_TX:
+	case MI2S_RX:
+	case MI2S_TX:
+	case AFE_PORT_ID_TERTIARY_MI2S_TX:
+	case AFE_PORT_ID_TERTIARY_MI2S_RX:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
+	case AFE_PORT_ID_PRIMARY_MI2S_TX:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX:
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
 int q6audio_validate_port(u16 port_id)
 {
 	int ret;
@@ -114,8 +200,10 @@ int q6audio_validate_port(u16 port_id)
 	switch (port_id) {
 	case PRIMARY_I2S_RX:
 	case PRIMARY_I2S_TX:
-	case PCM_RX:
-	case PCM_TX:
+	case AFE_PORT_ID_PRIMARY_PCM_RX:
+	case AFE_PORT_ID_PRIMARY_PCM_TX:
+	case AFE_PORT_ID_SECONDARY_PCM_RX:
+	case AFE_PORT_ID_SECONDARY_PCM_TX:
 	case SECONDARY_I2S_RX:
 	case SECONDARY_I2S_TX:
 	case MI2S_RX:
@@ -127,10 +215,15 @@ int q6audio_validate_port(u16 port_id)
 	case VOICE_RECORD_RX:
 	case VOICE_RECORD_TX:
 	case VOICE_PLAYBACK_TX:
+	case VOICE2_PLAYBACK_TX:
 	case SLIMBUS_0_RX:
 	case SLIMBUS_0_TX:
 	case SLIMBUS_1_RX:
 	case SLIMBUS_1_TX:
+	case SLIMBUS_2_RX:
+	case SLIMBUS_2_TX:
+	case SLIMBUS_4_TX:
+	case SLIMBUS_5_TX:
 	case INT_BT_SCO_RX:
 	case INT_BT_SCO_TX:
 	case INT_BT_A2DP_RX:
@@ -138,6 +231,12 @@ int q6audio_validate_port(u16 port_id)
 	case INT_FM_TX:
 	case RT_PROXY_PORT_001_RX:
 	case RT_PROXY_PORT_001_TX:
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
+	case AFE_PORT_ID_PRIMARY_MI2S_TX:
+	case AFE_PORT_ID_QUATERNARY_MI2S_RX:
+	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
+	case AFE_PORT_ID_SECONDARY_MI2S_RX:
+	case AFE_PORT_ID_SECONDARY_MI2S_TX:
 	{
 		ret = 0;
 		break;

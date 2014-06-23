@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2012 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -49,6 +49,7 @@ struct audio_locks {
 	wait_queue_head_t write_wait;
 	wait_queue_head_t eos_wait;
 	wait_queue_head_t enable_wait;
+	wait_queue_head_t flush_wait;
 };
 
 struct msm_audio {
@@ -71,14 +72,40 @@ struct msm_audio {
 	int enabled;
 	int close_ack;
 	int cmd_ack;
+	/*
+	 * cmd_ack doesn't tell if paticular command has been sent so can't
+	 * determine if it needs to wait for completion.
+	 * Use cmd_pending instead when checking whether a command is been
+	 * sent or not.
+	 */
+	unsigned long cmd_pending;
 	atomic_t start;
+	atomic_t stop;
 	atomic_t out_count;
 	atomic_t in_count;
 	atomic_t out_needed;
+	atomic_t eos;
 	int out_head;
 	int periods;
 	int mmap_flag;
 	atomic_t pending_buffer;
+	bool set_channel_map;
+	char channel_map[8];
+	int cmd_interrupt;
+	bool meta_data_mode;
+	uint32_t volume;
+};
+
+struct output_meta_data_st {
+	uint32_t meta_data_length;
+	uint32_t frame_size;
+	uint32_t timestamp_lsw;
+	uint32_t timestamp_msw;
+	uint32_t reserved[12];
+};
+
+struct msm_plat_data {
+	int perf_mode;
 };
 
 #endif /*_MSM_PCM_H*/

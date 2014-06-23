@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/io.h>
+#include <linux/mfd/wcd9xxx/core.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -42,10 +43,8 @@
 #define SAMPLE_RATE_8KHZ 8000
 #define SAMPLE_RATE_16KHZ 16000
 
-#define BOTTOM_SPK_AMP_POS	0x1
-#define BOTTOM_SPK_AMP_NEG	0x2
-#define TOP_SPK_AMP_POS		0x4
-#define TOP_SPK_AMP_NEG		0x8
+#define TOP_AND_BOTTOM_SPK_AMP_POS	0x1
+#define TOP_AND_BOTTOM_SPK_AMP_NEG	0x2
 
 #define GPIO_AUX_PCM_DOUT 23
 #define GPIO_AUX_PCM_DIN 22
@@ -61,6 +60,10 @@
 
 #define TABLA_MBHC_DEF_BUTTONS 8
 #define TABLA_MBHC_DEF_RLOADS 5
+
+#define PM8018_IRQ_BASE			(NR_MSM_IRQS + NR_GPIO_IRQS)
+#define JACK_DETECT_GPIO 3
+#define JACK_DETECT_INT PM8018_GPIO_IRQ(PM8018_IRQ_BASE, JACK_DETECT_GPIO)
 
 /*
  * Added for I2S
@@ -85,6 +88,20 @@ static struct gpiomux_setting cdc_i2s_sclk = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
+};
+static struct gpiomux_setting audio_sec_i2s[] = {
+	/* Suspend state */
+	{
+		.func = GPIOMUX_FUNC_GPIO,
+		.drv  = GPIOMUX_DRV_2MA,
+		.pull = GPIOMUX_PULL_DOWN,
+	},
+	/* Active state */
+	{
+		.func = GPIOMUX_FUNC_2,
+		.drv  = GPIOMUX_DRV_8MA,
+		.pull = GPIOMUX_PULL_NONE,
+	}
 };
 
 static struct gpiomux_setting cdc_i2s_dout = {
@@ -139,6 +156,42 @@ static struct msm_gpiomux_config msm9615_audio_prim_i2s_codec_configs[] = {
 	},
 };
 
+static struct msm_gpiomux_config msm9615_audio_sec_i2s_codec_configs[] = {
+	{
+		.gpio = GPIO_SPKR_I2S_MCLK,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &cdc_i2s_mclk,
+		},
+	},
+	{
+		.gpio = GPIO_SEC_I2S_SCK,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_sec_i2s[0],
+			[GPIOMUX_ACTIVE] = &audio_sec_i2s[1],
+		},
+	},
+	{
+		.gpio = GPIO_SEC_I2S_DOUT,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_sec_i2s[0],
+			[GPIOMUX_ACTIVE] = &audio_sec_i2s[1],
+		},
+	},
+	{
+		.gpio = GPIO_SEC_I2S_WS,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_sec_i2s[0],
+			[GPIOMUX_ACTIVE] = &audio_sec_i2s[1],
+		},
+	},
+	{
+		.gpio = GPIO_SEC_I2S_DIN,
+		.settings = {
+			[GPIOMUX_SUSPENDED] = &audio_sec_i2s[0],
+			[GPIOMUX_ACTIVE] = &audio_sec_i2s[1],
+		},
+	},
+};
 /* Physical address for LPA CSR
  * LPA SIF mux registers. These are
  * ioremap( ) for Virtual address.
@@ -245,16 +298,13 @@ enum msm9x15_set_i2s_clk {
 /*
  * Added for I2S
  */
-
-static u32 top_spk_pamp_gpio  = PM8018_GPIO_PM_TO_SYS(3);
-static u32 bottom_spk_pamp_gpio = PM8018_GPIO_PM_TO_SYS(5);
+static u32 top_and_bottom_spk_pamp_gpio = PM8018_GPIO_PM_TO_SYS(5);
 
 void *sif_virt_addr;
 void *secpcm_portslc_virt_addr;
 
 static int mdm9615_spk_control;
-static int mdm9615_ext_bottom_spk_pamp;
-static int mdm9615_ext_top_spk_pamp;
+static int mdm9615_ext_top_and_bottom_spk_pamp;
 static int mdm9615_slim_0_rx_ch = 1;
 static int mdm9615_slim_0_tx_ch = 1;
 
@@ -266,10 +316,22 @@ static int mdm9615_auxpcm_rate = SAMPLE_RATE_8KHZ;
 static struct clk *codec_clk;
 static int clk_users;
 
-static int mdm9615_headset_gpios_configured;
-
 static struct snd_soc_jack hs_jack;
 static struct snd_soc_jack button_jack;
+
+static struct platform_device *mdm9615_snd_device_slim;
+static struct platform_device *mdm9615_snd_device_i2s;
+
+static u32 sif_reg_value   = 0x0000;
+static u32 spare_reg_value = 0x0000;
+
+static bool hs_detect_use_gpio;
+module_param(hs_detect_use_gpio, bool, 0444);
+MODULE_PARM_DESC(hs_detect_use_gpio, "Use GPIO for headset detection");
+
+static bool hs_detect_use_firmware;
+module_param(hs_detect_use_firmware, bool, 0444);
+MODULE_PARM_DESC(hs_detect_use_firmware, "Use firmware for headset detection");
 
 static int mdm9615_enable_codec_ext_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm);
@@ -300,39 +362,26 @@ static void mdm9615_enable_ext_spk_amp_gpio(u32 spk_amp_gpio)
 		.function       = PM_GPIO_FUNC_NORMAL,
 	};
 
-	if (spk_amp_gpio == bottom_spk_pamp_gpio) {
+	if (spk_amp_gpio == top_and_bottom_spk_pamp_gpio) {
 
-		ret = gpio_request(bottom_spk_pamp_gpio, "BOTTOM_SPK_AMP");
+		ret = gpio_request(top_and_bottom_spk_pamp_gpio,
+				   "TOP_AND_BOTTOM_SPK_AMP");
 		if (ret) {
-			pr_err("%s: Error requesting BOTTOM SPK AMP GPIO %u\n",
-				__func__, bottom_spk_pamp_gpio);
+			pr_err("%s: Error requesting TOP AND BOTTOM SPK AMP GPIO %u\n",
+				__func__, top_and_bottom_spk_pamp_gpio);
 			return;
 		}
-		ret = pm8xxx_gpio_config(bottom_spk_pamp_gpio, &param);
+		ret = pm8xxx_gpio_config(top_and_bottom_spk_pamp_gpio, &param);
 		if (ret)
-			pr_err("%s: Failed to configure Bottom Spk Ampl"
-				" gpio %u\n", __func__, bottom_spk_pamp_gpio);
+			pr_err("%s: Failed to configure Top & Bottom Spk Ampl\n"
+				"gpio %u\n", __func__,
+				top_and_bottom_spk_pamp_gpio);
 		else {
-			pr_debug("%s: enable Bottom spkr amp gpio\n", __func__);
-			gpio_direction_output(bottom_spk_pamp_gpio, 1);
+			pr_debug("%s: enable Top & Bottom spkr amp gpio\n",
+				 __func__);
+			gpio_direction_output(top_and_bottom_spk_pamp_gpio, 1);
 		}
 
-	} else if (spk_amp_gpio == top_spk_pamp_gpio) {
-
-		ret = gpio_request(top_spk_pamp_gpio, "TOP_SPK_AMP");
-		if (ret) {
-			pr_err("%s: Error requesting GPIO %d\n", __func__,
-				top_spk_pamp_gpio);
-			return;
-		}
-		ret = pm8xxx_gpio_config(top_spk_pamp_gpio, &param);
-		if (ret)
-			pr_err("%s: Failed to configure Top Spk Ampl"
-				" gpio %u\n", __func__, top_spk_pamp_gpio);
-		else {
-			pr_debug("%s: enable Top spkr amp gpio\n", __func__);
-			gpio_direction_output(top_spk_pamp_gpio, 1);
-		}
 	} else {
 		pr_err("%s: ERROR : Invalid External Speaker Ampl GPIO."
 			" gpio = %u\n", __func__, spk_amp_gpio);
@@ -342,49 +391,30 @@ static void mdm9615_enable_ext_spk_amp_gpio(u32 spk_amp_gpio)
 
 static void mdm9615_ext_spk_power_amp_on(u32 spk)
 {
-	if (spk & (BOTTOM_SPK_AMP_POS | BOTTOM_SPK_AMP_NEG)) {
-
-		if ((mdm9615_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_POS) &&
-			(mdm9615_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_NEG)) {
-
-			pr_debug("%s() External Bottom Speaker Ampl already "
+	if (spk & (TOP_AND_BOTTOM_SPK_AMP_POS | TOP_AND_BOTTOM_SPK_AMP_NEG)) {
+		if ((mdm9615_ext_top_and_bottom_spk_pamp &
+		     TOP_AND_BOTTOM_SPK_AMP_POS) &&
+		    (mdm9615_ext_top_and_bottom_spk_pamp &
+		     TOP_AND_BOTTOM_SPK_AMP_NEG)) {
+			pr_debug("%s() External Speaker Ampl already "
 				"turned on. spk = 0x%08x\n", __func__, spk);
 			return;
 		}
 
-		mdm9615_ext_bottom_spk_pamp |= spk;
+		mdm9615_ext_top_and_bottom_spk_pamp |= spk;
 
-		if ((mdm9615_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_POS) &&
-			(mdm9615_ext_bottom_spk_pamp & BOTTOM_SPK_AMP_NEG)) {
-
-			mdm9615_enable_ext_spk_amp_gpio(bottom_spk_pamp_gpio);
-			pr_debug("%s: slepping 4 ms after turning on external "
-				" Bottom Speaker Ampl\n", __func__);
+		if ((mdm9615_ext_top_and_bottom_spk_pamp &
+		     TOP_AND_BOTTOM_SPK_AMP_POS) &&
+		    (mdm9615_ext_top_and_bottom_spk_pamp &
+		     TOP_AND_BOTTOM_SPK_AMP_NEG)) {
+			mdm9615_enable_ext_spk_amp_gpio(
+					top_and_bottom_spk_pamp_gpio);
+			pr_debug("%s: slepping 4 ms after turning on external\n"
+				"Speaker Ampl\n", __func__);
 			usleep_range(4000, 4000);
 		}
 
-	} else if (spk & (TOP_SPK_AMP_POS | TOP_SPK_AMP_NEG)) {
-
-		if ((mdm9615_ext_top_spk_pamp & TOP_SPK_AMP_POS) &&
-			(mdm9615_ext_top_spk_pamp & TOP_SPK_AMP_NEG)) {
-
-			pr_debug("%s() External Top Speaker Ampl already"
-				"turned on. spk = 0x%08x\n", __func__, spk);
-			return;
-		}
-
-		mdm9615_ext_top_spk_pamp |= spk;
-
-		if ((mdm9615_ext_top_spk_pamp & TOP_SPK_AMP_POS) &&
-			(mdm9615_ext_top_spk_pamp & TOP_SPK_AMP_NEG)) {
-
-			mdm9615_enable_ext_spk_amp_gpio(top_spk_pamp_gpio);
-			pr_debug("%s: sleeping 4 ms after turning on "
-				" external Top Speaker Ampl\n", __func__);
-			usleep_range(4000, 4000);
-		}
-	} else  {
-
+	} else {
 		pr_err("%s: ERROR : Invalid External Speaker Ampl. spk = 0x%08x\n",
 			__func__, spk);
 		return;
@@ -393,33 +423,20 @@ static void mdm9615_ext_spk_power_amp_on(u32 spk)
 
 static void mdm9615_ext_spk_power_amp_off(u32 spk)
 {
-	if (spk & (BOTTOM_SPK_AMP_POS | BOTTOM_SPK_AMP_NEG)) {
+	if (spk & (TOP_AND_BOTTOM_SPK_AMP_POS | TOP_AND_BOTTOM_SPK_AMP_NEG)) {
 
-		if (!mdm9615_ext_bottom_spk_pamp)
+		if (!mdm9615_ext_top_and_bottom_spk_pamp)
 			return;
 
-		gpio_direction_output(bottom_spk_pamp_gpio, 0);
-		gpio_free(bottom_spk_pamp_gpio);
-		mdm9615_ext_bottom_spk_pamp = 0;
+		gpio_direction_output(top_and_bottom_spk_pamp_gpio, 0);
+		gpio_free(top_and_bottom_spk_pamp_gpio);
+		mdm9615_ext_top_and_bottom_spk_pamp = 0;
 
 		pr_debug("%s: sleeping 4 ms after turning off external Bottom"
 			" Speaker Ampl\n", __func__);
 
 		usleep_range(4000, 4000);
 
-	} else if (spk & (TOP_SPK_AMP_POS | TOP_SPK_AMP_NEG)) {
-
-		if (!mdm9615_ext_top_spk_pamp)
-			return;
-
-		gpio_direction_output(top_spk_pamp_gpio, 0);
-		gpio_free(top_spk_pamp_gpio);
-		mdm9615_ext_top_spk_pamp = 0;
-
-		pr_debug("%s: sleeping 4 ms after turning off external Top"
-			" Spkaker Ampl\n", __func__);
-
-		usleep_range(4000, 4000);
 	} else  {
 
 		pr_err("%s: ERROR : Invalid Ext Spk Ampl. spk = 0x%08x\n",
@@ -434,15 +451,11 @@ static void mdm9615_ext_control(struct snd_soc_codec *codec)
 
 	pr_debug("%s: mdm9615_spk_control = %d", __func__, mdm9615_spk_control);
 	if (mdm9615_spk_control == MDM9615_SPK_ON) {
-		snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Pos");
-		snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Neg");
-		snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Pos");
-		snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Neg");
+		snd_soc_dapm_enable_pin(dapm, "Ext Spk Pos");
+		snd_soc_dapm_enable_pin(dapm, "Ext Spk Neg");
 	} else {
-		snd_soc_dapm_disable_pin(dapm, "Ext Spk Bottom Pos");
-		snd_soc_dapm_disable_pin(dapm, "Ext Spk Bottom Neg");
-		snd_soc_dapm_disable_pin(dapm, "Ext Spk Top Pos");
-		snd_soc_dapm_disable_pin(dapm, "Ext Spk Top Neg");
+		snd_soc_dapm_disable_pin(dapm, "Ext Spk Pos");
+		snd_soc_dapm_disable_pin(dapm, "Ext Spk Neg");
 	}
 
 	snd_soc_dapm_sync(dapm);
@@ -474,14 +487,12 @@ static int mdm9615_spkramp_event(struct snd_soc_dapm_widget *w,
 	pr_debug("%s() %x\n", __func__, SND_SOC_DAPM_EVENT_ON(event));
 
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
-		if (!strncmp(w->name, "Ext Spk Bottom Pos", 18))
-			mdm9615_ext_spk_power_amp_on(BOTTOM_SPK_AMP_POS);
-		else if (!strncmp(w->name, "Ext Spk Bottom Neg", 18))
-			mdm9615_ext_spk_power_amp_on(BOTTOM_SPK_AMP_NEG);
-		else if (!strncmp(w->name, "Ext Spk Top Pos", 15))
-			mdm9615_ext_spk_power_amp_on(TOP_SPK_AMP_POS);
-		else if  (!strncmp(w->name, "Ext Spk Top Neg", 15))
-			mdm9615_ext_spk_power_amp_on(TOP_SPK_AMP_NEG);
+		if (!strncmp(w->name, "Ext Spk Pos", 11))
+			mdm9615_ext_spk_power_amp_on(
+					TOP_AND_BOTTOM_SPK_AMP_POS);
+		else if (!strncmp(w->name, "Ext Spk Neg", 11))
+			mdm9615_ext_spk_power_amp_on(
+					TOP_AND_BOTTOM_SPK_AMP_NEG);
 		else {
 			pr_err("%s() Invalid Speaker Widget = %s\n",
 					__func__, w->name);
@@ -489,14 +500,12 @@ static int mdm9615_spkramp_event(struct snd_soc_dapm_widget *w,
 		}
 
 	} else {
-		if (!strncmp(w->name, "Ext Spk Bottom Pos", 18))
-			mdm9615_ext_spk_power_amp_off(BOTTOM_SPK_AMP_POS);
-		else if (!strncmp(w->name, "Ext Spk Bottom Neg", 18))
-			mdm9615_ext_spk_power_amp_off(BOTTOM_SPK_AMP_NEG);
-		else if (!strncmp(w->name, "Ext Spk Top Pos", 15))
-			mdm9615_ext_spk_power_amp_off(TOP_SPK_AMP_POS);
-		else if  (!strncmp(w->name, "Ext Spk Top Neg", 15))
-			mdm9615_ext_spk_power_amp_off(TOP_SPK_AMP_NEG);
+		if (!strncmp(w->name, "Ext Spk Pos", 11))
+			mdm9615_ext_spk_power_amp_off(
+					TOP_AND_BOTTOM_SPK_AMP_POS);
+		else if (!strncmp(w->name, "Ext Spk Neg", 11))
+			mdm9615_ext_spk_power_amp_off(
+					TOP_AND_BOTTOM_SPK_AMP_NEG);
 		else {
 			pr_err("%s() Invalid Speaker Widget = %s\n",
 					__func__, w->name);
@@ -557,11 +566,8 @@ static const struct snd_soc_dapm_widget mdm9615_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
 	mdm9615_mclk_event, SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_SPK("Ext Spk Bottom Pos", mdm9615_spkramp_event),
-	SND_SOC_DAPM_SPK("Ext Spk Bottom Neg", mdm9615_spkramp_event),
-
-	SND_SOC_DAPM_SPK("Ext Spk Top Pos", mdm9615_spkramp_event),
-	SND_SOC_DAPM_SPK("Ext Spk Top Neg", mdm9615_spkramp_event),
+	SND_SOC_DAPM_SPK("Ext Spk Pos", mdm9615_spkramp_event),
+	SND_SOC_DAPM_SPK("Ext Spk Neg", mdm9615_spkramp_event),
 
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
@@ -584,11 +590,11 @@ static const struct snd_soc_dapm_route common_audio_map[] = {
 	{"LDO_H", NULL, "MCLK"},
 
 	/* Speaker path */
-	{"Ext Spk Bottom Pos", NULL, "LINEOUT1"},
-	{"Ext Spk Bottom Neg", NULL, "LINEOUT3"},
+	{"Ext Spk Pos", NULL, "LINEOUT1"},
+	{"Ext Spk Neg", NULL, "LINEOUT3"},
 
-	{"Ext Spk Top Pos", NULL, "LINEOUT2"},
-	{"Ext Spk Top Neg", NULL, "LINEOUT4"},
+	{"Ext Spk Pos", NULL, "LINEOUT2"},
+	{"Ext Spk Neg", NULL, "LINEOUT4"},
 
 	/* Microphone path */
 	{"AMIC1", NULL, "MIC BIAS1 External"},
@@ -733,10 +739,10 @@ static int mdm9615_btsco_rate_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	switch (ucontrol->value.integer.value[0]) {
-	case 0:
+	case 8000:
 		mdm9615_btsco_rate = SAMPLE_RATE_8KHZ;
 		break;
-	case 1:
+	case 16000:
 		mdm9615_btsco_rate = SAMPLE_RATE_16KHZ;
 		break;
 	default:
@@ -907,13 +913,6 @@ static int mdm9615_hw_params(struct snd_pcm_substream *substream,
 			pr_err("%s: failed to set cpu chan map\n", __func__);
 			goto end;
 		}
-		ret = snd_soc_dai_set_channel_map(codec_dai, 0, 0,
-				mdm9615_slim_0_rx_ch, rx_ch);
-		if (ret < 0) {
-			pr_err("%s: failed to set codec channel map\n",
-								__func__);
-			goto end;
-		}
 	} else {
 		ret = snd_soc_dai_get_channel_map(codec_dai,
 				&tx_ch_cnt, tx_ch, &rx_ch_cnt , rx_ch);
@@ -925,13 +924,6 @@ static int mdm9615_hw_params(struct snd_pcm_substream *substream,
 				mdm9615_slim_0_tx_ch, tx_ch, 0 , 0);
 		if (ret < 0) {
 			pr_err("%s: failed to set cpu chan map\n", __func__);
-			goto end;
-		}
-		ret = snd_soc_dai_set_channel_map(codec_dai,
-				mdm9615_slim_0_tx_ch, tx_ch, 0, 0);
-		if (ret < 0) {
-			pr_err("%s: failed to set codec channel map\n",
-								__func__);
 			goto end;
 		}
 	}
@@ -992,6 +984,10 @@ static const struct snd_kcontrol_new tabla_msm9615_i2s_controls[] = {
 		     msm9615_i2s_rx_ch_get, msm9615_i2s_rx_ch_put),
 	SOC_ENUM_EXT("PRI_TX Channels", mdm9615_enum[2],
 		     msm9615_i2s_tx_ch_get, msm9615_i2s_tx_ch_put),
+	SOC_ENUM_EXT("SEC_RX Channels", mdm9615_enum[3],
+			msm9615_i2s_rx_ch_get, msm9615_i2s_rx_ch_put),
+	SOC_ENUM_EXT("SEC_TX Channels", mdm9615_enum[4],
+			msm9615_i2s_tx_ch_get, msm9615_i2s_tx_ch_put),
 };
 
 static int msm9615_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
@@ -1006,10 +1002,8 @@ static int msm9615_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_add_routes(dapm, common_audio_map,
 		ARRAY_SIZE(common_audio_map));
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Pos");
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Neg");
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Pos");
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Neg");
+	snd_soc_dapm_enable_pin(dapm, "Ext Spk Pos");
+	snd_soc_dapm_enable_pin(dapm, "Ext Spk Neg");
 
 	snd_soc_dapm_sync(dapm);
 
@@ -1028,6 +1022,9 @@ static int msm9615_i2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	}
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
 	err = tabla_hs_detect(codec, &mbhc_cfg);
+	msm_gpiomux_install(
+			msm9615_audio_prim_i2s_codec_configs,
+			ARRAY_SIZE(msm9615_audio_prim_i2s_codec_configs));
 	return err;
 }
 
@@ -1281,47 +1278,64 @@ err:
 	return ret;
 }
 
-static void msm9615_config_i2s_sif_mux(u8 value)
+static void msm9615_config_i2s_sif_mux(u8 value, u8 i2s_intf)
 {
 	struct msm_i2s_ctl *pintf = &msm9x15_i2s_ctl;
-	u32 sif_shadow  = 0x0000;
-	/* Make this variable global if both secondary and
-	 * primary needs to be supported. This is required
-	 * to retain bits in interace and set only specific
-	 * bits in the register. Also set Sec Intf bits.
-	 * Secondary interface bits are 0,1.
-	 **/
-	sif_shadow = (sif_shadow & LPASS_SIF_MUX_CTL_PRI_MUX_SEL_BMSK) |
-		     (value << LPASS_SIF_MUX_CTL_PRI_MUX_SEL_SHFT);
+	u32 sif_shadow = 0x0000;
+
+	pr_debug("%s() Value = 0x%x intf = 0x%x\n", __func__, value, i2s_intf);
+	if (i2s_intf == MSM_INTF_PRIM) {
+		sif_shadow = (sif_shadow & LPASS_SIF_MUX_CTL_PRI_MUX_SEL_BMSK) |
+			     (value << LPASS_SIF_MUX_CTL_PRI_MUX_SEL_SHFT);
+		pr_debug("%s() Sif shadow = 0x%x\n", __func__, sif_shadow);
+		sif_reg_value =
+			((sif_reg_value & LPASS_SIF_MUX_CTL_SEC_MUX_SEL_BMSK) |
+			 sif_shadow);
+	}
+	if (i2s_intf == MSM_INTF_SECN) {
+		sif_shadow = (sif_shadow & LPASS_SIF_MUX_CTL_SEC_MUX_SEL_BMSK) |
+				(value << LPASS_SIF_MUX_CTL_SEC_MUX_SEL_SHFT);
+		pr_debug("%s() Sif shadow = 0x%x\n", __func__, sif_shadow);
+		sif_reg_value =
+			((sif_reg_value & LPASS_SIF_MUX_CTL_PRI_MUX_SEL_BMSK) |
+			sif_shadow);
+	}
 	if (pintf->sif_virt_addr != NULL)
-		iowrite32(sif_shadow, pintf->sif_virt_addr);
+		iowrite32(sif_reg_value, pintf->sif_virt_addr);
 	/* Dont read SIF register. Device crashes. */
-	pr_debug("%s() SIF Reg = 0x%x\n", __func__, sif_shadow);
+	pr_debug("%s() SIF Reg = 0x%x\n", __func__, sif_reg_value);
 }
 
 static void msm9615_config_i2s_spare_mux(u8 value, u8 i2s_intf)
 {
 	struct msm_i2s_ctl *pintf = &msm9x15_i2s_ctl;
 	u32 spare_shadow = 0x0000;
-	/* Make this variable global if both secondary and
-	 * primary needs to be supported. This is required
-	 * to retain bits in interace and set only specific
-	 * bits in the register. Also set Sec Intf bits.
-	 **/
+
+	pr_debug("%s() Value = 0x%x intf = 0x%x\n", __func__, value, i2s_intf);
 	if (i2s_intf == MSM_INTF_PRIM) {
 		/* Configure Primary SIF */
-	    spare_shadow = (spare_shadow & LPAIF_SPARE_MUX_CTL_PRI_MUX_SEL_BMSK
-			   ) | (value << LPAIF_SPARE_MUX_CTL_PRI_MUX_SEL_SHFT);
+		spare_shadow =
+			(spare_shadow & LPAIF_SPARE_MUX_CTL_PRI_MUX_SEL_BMSK) |
+			(value << LPAIF_SPARE_MUX_CTL_PRI_MUX_SEL_SHFT);
+		pr_debug("%s() Spare shadow = 0x%x\n", __func__, spare_shadow);
+		spare_reg_value =
+			((spare_shadow & LPAIF_SPARE_MUX_CTL_SEC_MUX_SEL_BMSK) |
+			spare_shadow);
 	}
 	if (i2s_intf == MSM_INTF_SECN) {
 		/*Secondary interface configuration*/
-	    spare_shadow = (spare_shadow & LPAIF_SPARE_MUX_CTL_SEC_MUX_SEL_BMSK
-			   ) | (value << LPAIF_SPARE_MUX_CTL_SEC_MUX_SEL_SHFT);
+		spare_shadow =
+			(spare_shadow & LPAIF_SPARE_MUX_CTL_SEC_MUX_SEL_BMSK) |
+			(value << LPAIF_SPARE_MUX_CTL_SEC_MUX_SEL_SHFT);
+		pr_debug("%s() Spare shadow = 0x%x\n", __func__, spare_shadow);
+		spare_reg_value =
+			((spare_shadow & LPAIF_SPARE_MUX_CTL_PRI_MUX_SEL_BMSK) |
+			spare_shadow);
 	}
 	if (pintf->spare_virt_addr != NULL)
-		iowrite32(spare_shadow, pintf->spare_virt_addr);
+		iowrite32(spare_reg_value, pintf->spare_virt_addr);
 	/* Dont read SPARE register. Device crashes. */
-	pr_debug("%s( ): SPARE Reg =0x%x\n", __func__, spare_shadow);
+	pr_debug("%s( ): SPARE Reg =0x%x\n", __func__, spare_reg_value);
 }
 
 static int msm9615_i2s_hw_params(struct snd_pcm_substream *substream,
@@ -1389,7 +1403,8 @@ static int msm9615_i2s_startup(struct snd_pcm_substream *substream)
 					return -EINVAL;
 				}
 				msm9615_config_i2s_sif_mux(
-				       pintf->mux_ctl[MSM_DIR_BOTH].sifconfig);
+				       pintf->mux_ctl[MSM_DIR_BOTH].sifconfig,
+					i2s_intf);
 				msm9615_config_i2s_spare_mux(
 				      pintf->mux_ctl[MSM_DIR_BOTH].spareconfig,
 				      i2s_intf);
@@ -1415,7 +1430,8 @@ static int msm9615_i2s_startup(struct snd_pcm_substream *substream)
 					return -EINVAL;
 				}
 				msm9615_config_i2s_sif_mux(
-					pintf->mux_ctl[MSM_DIR_TX].sifconfig);
+					pintf->mux_ctl[MSM_DIR_TX].sifconfig,
+					i2s_intf);
 				msm9615_config_i2s_spare_mux(
 					pintf->mux_ctl[MSM_DIR_TX].spareconfig,
 					i2s_intf);
@@ -1444,7 +1460,8 @@ static int msm9615_i2s_startup(struct snd_pcm_substream *substream)
 					return -EINVAL;
 				}
 				msm9615_config_i2s_sif_mux(
-					pintf->mux_ctl[MSM_DIR_RX].sifconfig);
+					pintf->mux_ctl[MSM_DIR_RX].sifconfig,
+					i2s_intf);
 				msm9615_config_i2s_spare_mux(
 					pintf->mux_ctl[MSM_DIR_RX].spareconfig,
 					i2s_intf);
@@ -1498,10 +1515,51 @@ static void msm9615_i2s_shutdown(struct snd_pcm_substream *substream)
 		 pintf->intf_status[i2s_intf][MSM_DIR_TX]);
 }
 
+void msm9615_config_port_select(void)
+{
+	iowrite32(SEC_PCM_PORT_SLC_VALUE, secpcm_portslc_virt_addr);
+	pr_debug("%s() port select after updating = 0x%x\n",
+		__func__, ioread32(secpcm_portslc_virt_addr));
+}
+static void  mdm9615_install_codec_i2s_gpio(struct snd_pcm_substream *substream)
+{
+	u8 i2s_intf, i2s_dir;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+
+	if (!msm9615_i2s_intf_dir_sel(cpu_dai->name, &i2s_intf, &i2s_dir)) {
+		pr_debug("%s( ): cpu name = %s intf =%d dir = %d\n",
+			 __func__, cpu_dai->name, i2s_intf, i2s_dir);
+		if (i2s_intf == MSM_INTF_PRIM) {
+			msm_gpiomux_install(
+			msm9615_audio_prim_i2s_codec_configs,
+			ARRAY_SIZE(msm9615_audio_prim_i2s_codec_configs));
+		} else if (i2s_intf == MSM_INTF_SECN) {
+			msm_gpiomux_install(msm9615_audio_sec_i2s_codec_configs,
+			ARRAY_SIZE(msm9615_audio_sec_i2s_codec_configs));
+			msm9615_config_port_select();
+
+		}
+	}
+}
+
+static int msm9615_i2s_prepare(struct snd_pcm_substream *substream)
+{
+	u8 ret = 0;
+
+	if (wcd9xxx_get_intf_type() < 0)
+		ret = -ENODEV;
+	else if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C)
+		mdm9615_install_codec_i2s_gpio(substream);
+
+	return ret;
+}
+
 static struct snd_soc_ops msm9615_i2s_be_ops = {
 	.startup = msm9615_i2s_startup,
 	.shutdown = msm9615_i2s_shutdown,
 	.hw_params = msm9615_i2s_hw_params,
+	.prepare = msm9615_i2s_prepare,
 };
 
 static int mdm9615_audrx_init(struct snd_soc_pcm_runtime *rtd)
@@ -1510,6 +1568,22 @@ static int mdm9615_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct pm_gpio jack_gpio_cfg = {
+		.direction = PM_GPIO_DIR_IN,
+		.pull = PM_GPIO_PULL_NO,
+		.function = PM_GPIO_FUNC_NORMAL,
+		.vin_sel = 2,
+		.inv_int_pol = 0,
+	};
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+
+	/* Tabla SLIMBUS configuration
+	 * RX1, RX2, RX3, RX4, RX5, RX6, RX7
+	 * TX1, TX2, TX3, TX4, TX5, TX6, TX7, TX8, TX9, TX10
+	 */
+	unsigned int rx_ch[TABLA_RX_MAX] = {138, 139, 140, 141, 142, 143, 144};
+	unsigned int tx_ch[TABLA_TX_MAX]  = {128, 129, 130, 131, 132, 133, 134,
+					     135, 136, 137};
 
 	pr_debug("%s(), dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
@@ -1521,10 +1595,8 @@ static int mdm9615_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_add_routes(dapm, common_audio_map,
 		ARRAY_SIZE(common_audio_map));
 
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Pos");
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Bottom Neg");
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Pos");
-	snd_soc_dapm_enable_pin(dapm, "Ext Spk Top Neg");
+	snd_soc_dapm_enable_pin(dapm, "Ext Spk Pos");
+	snd_soc_dapm_enable_pin(dapm, "Ext Spk Neg");
 
 	snd_soc_dapm_sync(dapm);
 
@@ -1545,7 +1617,28 @@ static int mdm9615_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	}
 	codec_clk = clk_get(cpu_dai->dev, "osr_clk");
 
+	if (hs_detect_use_gpio) {
+		pr_debug("%s: GPIO Headset detection enabled\n", __func__);
+		mbhc_cfg.gpio = PM8018_GPIO_PM_TO_SYS(JACK_DETECT_GPIO);
+		mbhc_cfg.gpio_irq = JACK_DETECT_INT;
+	}
+
+	if (mbhc_cfg.gpio) {
+		err = pm8xxx_gpio_config(mbhc_cfg.gpio, &jack_gpio_cfg);
+		if (err) {
+			pr_err("%s: pm8xxx_gpio_config JACK_DETECT failed %d\n",
+			       __func__, err);
+			return err;
+		}
+	}
+
+	mbhc_cfg.read_fw_bin = hs_detect_use_firmware;
+
 	err = tabla_hs_detect(codec, &mbhc_cfg);
+
+	snd_soc_dai_set_channel_map(codec_dai, ARRAY_SIZE(tx_ch),
+				    tx_ch, ARRAY_SIZE(rx_ch), rx_ch);
+
 
 	return err;
 }
@@ -1611,6 +1704,19 @@ static int mdm9615_auxpcm_be_params_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	return 0;
 }
+
+static int mdm9615_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+			struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+						      SNDRV_PCM_HW_PARAM_RATE);
+
+	pr_debug("%s()\n", __func__);
+	rate->min = rate->max = 48000;
+
+	return 0;
+}
+
 static int mdm9615_aux_pcm_get_gpios(void)
 {
 	int ret = 0;
@@ -1740,15 +1846,6 @@ void msm9615_config_sif_mux(u8 value)
 	iowrite32(sif_shadow, sif_virt_addr);
 	/* Dont read SIF register. Device crashes. */
 	pr_debug("%s() SIF Reg = 0x%x\n", __func__, sif_shadow);
-}
-
-void msm9615_config_port_select(void)
-{
-	pr_debug("%s() port select defualt = 0x%x\n",
-		 __func__, ioread32(secpcm_portslc_virt_addr));
-	iowrite32(SEC_PCM_PORT_SLC_VALUE, secpcm_portslc_virt_addr);
-	pr_debug("%s() port select after updating = 0x%x\n",
-		 __func__, ioread32(secpcm_portslc_virt_addr));
 }
 
 static int mdm9615_auxpcm_startup(struct snd_pcm_substream *substream)
@@ -1932,6 +2029,70 @@ static struct snd_soc_dai_link mdm9615_dai_common[] = {
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ignore_suspend = 1,
 	},
+	{
+		.name = "DTMF RX Hostless",
+		.stream_name = "DTMF RX Hostless",
+		.cpu_dai_name	= "DTMF_RX_HOSTLESS",
+		.platform_name  = "msm-pcm-dtmf",
+		.dynamic = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.ignore_suspend = 1,
+		.be_id = MSM_FRONTEND_DAI_DTMF_RX,
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+	},
+	{
+		.name = "DTMF TX",
+		.stream_name = "DTMF TX",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-pcm-dtmf",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.ignore_suspend = 1,
+	},
+	{
+		.name = "CS-VOICE HOST RX CAPTURE",
+		.stream_name = "CS-VOICE HOST RX CAPTURE",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-host-pcm-voice",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.ignore_suspend = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+	},
+	{
+		.name = "CS-VOICE HOST RX PLAYBACK",
+		.stream_name = "CS-VOICE HOST RX PLAYBACK",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-host-pcm-voice",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.ignore_suspend = 1,
+	},
+	{
+		.name = "CS-VOICE HOST TX CAPTURE",
+		.stream_name = "CS-VOICE HOST TX CAPTURE",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-host-pcm-voice",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.ignore_suspend = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+	},
+	{
+		.name = "CS-VOICE HOST TX PLAYBACK",
+		.stream_name = "CS-VOICE HOST TX PLAYBACK",
+		.cpu_dai_name = "msm-dai-stub",
+		.platform_name  = "msm-host-pcm-voice",
+		.codec_name = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.ignore_suspend = 1,
+	},
+
 	/* Backend BT DAI Links */
 	{
 		.name = LPASS_BE_INT_BT_SCO_RX,
@@ -2028,6 +2189,43 @@ static struct snd_soc_dai_link mdm9615_dai_common[] = {
 		.be_hw_params_fixup = mdm9615_auxpcm_be_params_fixup,
 		.ops = &mdm9615_sec_auxpcm_be_ops,
 	},
+	/* Incall Music BACK END DAI Link */
+	{
+		.name = LPASS_BE_VOICE_PLAYBACK_TX,
+		.stream_name = "Voice Farend Playback",
+		.cpu_dai_name = "msm-dai-q6.32773",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_VOICE_PLAYBACK_TX,
+		.be_hw_params_fixup = mdm9615_be_hw_params_fixup,
+	},
+	/* Incall Record Uplink BACK END DAI Link */
+	{
+		.name = LPASS_BE_INCALL_RECORD_TX,
+		.stream_name = "Voice Uplink Capture",
+		.cpu_dai_name = "msm-dai-q6.32772",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_INCALL_RECORD_TX,
+		.be_hw_params_fixup = mdm9615_be_hw_params_fixup,
+	},
+	/* Incall Record Downlink BACK END DAI Link */
+	{
+		.name = LPASS_BE_INCALL_RECORD_RX,
+		.stream_name = "Voice Downlink Capture",
+		.cpu_dai_name = "msm-dai-q6.32771",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_INCALL_RECORD_RX,
+		.be_hw_params_fixup = mdm9615_be_hw_params_fixup,
+		.ignore_pmdown_time = 1, /* this dailink has playback support */
+	},
 };
 
 static struct snd_soc_dai_link mdm9615_dai_i2s_tabla[] = {
@@ -2054,6 +2252,30 @@ static struct snd_soc_dai_link mdm9615_dai_i2s_tabla[] = {
 		.codec_dai_name	= "tabla_i2s_tx1",
 		.no_pcm = 1,
 		.be_id = MSM_BACKEND_DAI_PRI_I2S_TX,
+		.be_hw_params_fixup = msm9615_i2s_tx_be_hw_params_fixup,
+		.ops = &msm9615_i2s_be_ops,
+	},
+	{
+		.name = LPASS_BE_SEC_I2S_RX,
+		.stream_name = "Secondary I2S Playback",
+		.cpu_dai_name = "msm-dai-q6.4",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-rx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SEC_I2S_RX,
+		.be_hw_params_fixup = msm9615_i2s_rx_be_hw_params_fixup,
+		.ops = &msm9615_i2s_be_ops,
+	},
+	{
+		.name = LPASS_BE_SEC_I2S_TX,
+		.stream_name = "Secondary I2S Capture",
+		.cpu_dai_name = "msm-dai-q6.5",
+		.platform_name = "msm-pcm-routing",
+		.codec_name     = "msm-stub-codec.1",
+		.codec_dai_name = "msm-stub-tx",
+		.no_pcm = 1,
+		.be_id = MSM_BACKEND_DAI_SEC_I2S_TX,
 		.be_hw_params_fixup = msm9615_i2s_tx_be_hw_params_fixup,
 		.ops = &msm9615_i2s_be_ops,
 	},
@@ -2097,73 +2319,25 @@ static struct snd_soc_dai_link mdm9615_slimbus_dai[
 					 ARRAY_SIZE(mdm9615_dai_slimbus_tabla)];
 
 
-static struct snd_soc_card snd_soc_card_mdm9615 = {
-		.name		= "mdm9615-tabla-snd-card",
+static struct snd_soc_card snd_soc_card_mdm9615[] = {
+	[0] = {
+		.name = "mdm9615-tabla-snd-card",
 		.controls = tabla_mdm9615_controls,
 		.num_controls = ARRAY_SIZE(tabla_mdm9615_controls),
+	},
+	[1] = {
+		.name = "mdm9615-tabla-snd-card-i2s",
+		.controls = tabla_msm9615_i2s_controls,
+		.num_controls = ARRAY_SIZE(tabla_msm9615_i2s_controls),
+	},
 };
 
-static struct platform_device *mdm9615_snd_device;
-
-static int mdm9615_configure_headset_mic_gpios(void)
-{
-	int ret;
-	struct pm_gpio param = {
-		.direction      = PM_GPIO_DIR_OUT,
-		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
-		.output_value   = 1,
-		.pull	   = PM_GPIO_PULL_NO,
-		.vin_sel	= PM_GPIO_VIN_S4,
-		.out_strength   = PM_GPIO_STRENGTH_MED,
-		.function       = PM_GPIO_FUNC_NORMAL,
-	};
-
-	ret = gpio_request(PM8018_GPIO_PM_TO_SYS(23), "AV_SWITCH");
-	if (ret) {
-		pr_err("%s: Failed to request gpio %d\n", __func__,
-			PM8018_GPIO_PM_TO_SYS(23));
-		return ret;
-	}
-
-	ret = pm8xxx_gpio_config(PM8018_GPIO_PM_TO_SYS(23), &param);
-	if (ret)
-		pr_err("%s: Failed to configure gpio %d\n", __func__,
-			PM8018_GPIO_PM_TO_SYS(23));
-	else
-		gpio_direction_output(PM8018_GPIO_PM_TO_SYS(23), 0);
-
-	ret = gpio_request(PM8018_GPIO_PM_TO_SYS(35), "US_EURO_SWITCH");
-	if (ret) {
-		pr_err("%s: Failed to request gpio %d\n", __func__,
-			PM8018_GPIO_PM_TO_SYS(35));
-		gpio_free(PM8018_GPIO_PM_TO_SYS(23));
-		return ret;
-	}
-	ret = pm8xxx_gpio_config(PM8018_GPIO_PM_TO_SYS(35), &param);
-	if (ret)
-		pr_err("%s: Failed to configure gpio %d\n", __func__,
-			PM8018_GPIO_PM_TO_SYS(35));
-	else
-		gpio_direction_output(PM8018_GPIO_PM_TO_SYS(35), 0);
-
-	return 0;
-}
-static void mdm9615_free_headset_mic_gpios(void)
-{
-	if (mdm9615_headset_gpios_configured) {
-		gpio_free(PM8018_GPIO_PM_TO_SYS(23));
-		gpio_free(PM8018_GPIO_PM_TO_SYS(35));
-	}
-}
-
-void  __init install_codec_i2s_gpio(void)
-{
-	msm_gpiomux_install(msm9615_audio_prim_i2s_codec_configs,
-			ARRAY_SIZE(msm9615_audio_prim_i2s_codec_configs));
-}
 static int __init mdm9615_audio_init(void)
 {
 	int ret;
+
+	/* Set GPIO headset detection by default */
+	hs_detect_use_gpio = true;
 
 	if (!cpu_is_msm9615()) {
 		pr_err("%s: Not the right machine type\n", __func__);
@@ -2175,53 +2349,63 @@ static int __init mdm9615_audio_init(void)
 		pr_err("Calibration data allocation failed\n");
 		return -ENOMEM;
 	}
+	mdm9615_snd_device_slim = platform_device_alloc("soc-audio", 0);
+	if (!mdm9615_snd_device_slim) {
+		pr_err("Platform device allocation failed\n");
+		kfree(mbhc_cfg.calibration);
+		return -ENOMEM;
+	}
 
-	mdm9615_snd_device = platform_device_alloc("soc-audio", 0);
-	if (!mdm9615_snd_device) {
+	/* Install SLIM specific links */
+	memcpy(mdm9615_slimbus_dai, mdm9615_dai_common,
+			sizeof(mdm9615_dai_common));
+	memcpy(mdm9615_slimbus_dai + ARRAY_SIZE(mdm9615_dai_common),
+		       mdm9615_dai_slimbus_tabla,
+		       sizeof(mdm9615_dai_slimbus_tabla));
+	snd_soc_card_mdm9615[0].dai_link = mdm9615_slimbus_dai;
+	snd_soc_card_mdm9615[0].num_links =
+				ARRAY_SIZE(mdm9615_slimbus_dai);
+
+	mdm9615_snd_device_i2s = platform_device_alloc("soc-audio", 1);
+	if (!mdm9615_snd_device_i2s) {
 		pr_err("Platform device allocation failed\n");
 		kfree(mbhc_cfg.calibration);
 		return -ENOMEM;
 	}
 	pr_err("%s: Interface Type = %d\n", __func__,
 			wcd9xxx_get_intf_type());
-	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
-		memcpy(mdm9615_slimbus_dai, mdm9615_dai_common,
-			sizeof(mdm9615_dai_common));
-		memcpy(mdm9615_slimbus_dai + ARRAY_SIZE(mdm9615_dai_common),
-		       mdm9615_dai_slimbus_tabla,
-		       sizeof(mdm9615_dai_slimbus_tabla));
-		snd_soc_card_mdm9615.dai_link = mdm9615_slimbus_dai;
-		snd_soc_card_mdm9615.num_links =
-				ARRAY_SIZE(mdm9615_slimbus_dai);
-	} else if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_I2C) {
-		install_codec_i2s_gpio();
-		memcpy(mdm9615_i2s_dai, mdm9615_dai_common,
-		       sizeof(mdm9615_dai_common));
-		memcpy(mdm9615_i2s_dai + ARRAY_SIZE(mdm9615_dai_common),
-		       mdm9615_dai_i2s_tabla,
-		       sizeof(mdm9615_dai_i2s_tabla));
-		snd_soc_card_mdm9615.dai_link = mdm9615_i2s_dai;
-		snd_soc_card_mdm9615.num_links =
-				ARRAY_SIZE(mdm9615_i2s_dai);
-	} else{
-		snd_soc_card_mdm9615.dai_link = mdm9615_dai_common;
-		snd_soc_card_mdm9615.num_links =
-				ARRAY_SIZE(mdm9615_dai_common);
-	}
 
-	platform_set_drvdata(mdm9615_snd_device, &snd_soc_card_mdm9615);
-	ret = platform_device_add(mdm9615_snd_device);
+	/* Install I2S specific links */
+	memcpy(mdm9615_i2s_dai, mdm9615_dai_common,
+	       sizeof(mdm9615_dai_common));
+	memcpy(mdm9615_i2s_dai + ARRAY_SIZE(mdm9615_dai_common),
+	       mdm9615_dai_i2s_tabla,
+	       sizeof(mdm9615_dai_i2s_tabla));
+	snd_soc_card_mdm9615[1].dai_link = mdm9615_i2s_dai;
+	snd_soc_card_mdm9615[1].num_links =
+				ARRAY_SIZE(mdm9615_i2s_dai);
+	platform_set_drvdata(mdm9615_snd_device_slim, &snd_soc_card_mdm9615[0]);
+	ret = platform_device_add(mdm9615_snd_device_slim);
 	if (ret) {
-		platform_device_put(mdm9615_snd_device);
+		pr_err("%s Slim platform_device_add fail\n", __func__);
+		platform_device_put(mdm9615_snd_device_slim);
 		kfree(mbhc_cfg.calibration);
 		return ret;
 	}
-	if (mdm9615_configure_headset_mic_gpios()) {
-		pr_err("%s Fail to configure headset mic gpios\n", __func__);
-		mdm9615_headset_gpios_configured = 0;
-	} else
-		mdm9615_headset_gpios_configured = 1;
+	platform_set_drvdata(mdm9615_snd_device_i2s, &snd_soc_card_mdm9615[1]);
+	ret = platform_device_add(mdm9615_snd_device_i2s);
+	if (ret) {
+		pr_err("%s I2S platform_device_add fail\n", __func__);
+		platform_device_put(mdm9615_snd_device_i2s);
+		kfree(mbhc_cfg.calibration);
+		return ret;
+	}
 
+	/*
+	 * Irrespective of audio interface type get virtual address
+	 * of LPAIF registers as it may not  be guaranted that I2S
+	 * will probed successfully in Init.
+	 */
 	atomic_set(&msm9615_auxpcm_ref, 0);
 	atomic_set(&msm9615_sec_auxpcm_ref, 0);
 	msm9x15_i2s_ctl.sif_virt_addr = ioremap(LPASS_SIF_MUX_ADDR, 4);
@@ -2242,8 +2426,8 @@ static void __exit mdm9615_audio_exit(void)
 		pr_err("%s: Not the right machine type\n", __func__);
 		return ;
 	}
-	mdm9615_free_headset_mic_gpios();
-	platform_device_unregister(mdm9615_snd_device);
+	platform_device_unregister(mdm9615_snd_device_slim);
+	platform_device_unregister(mdm9615_snd_device_i2s);
 	kfree(mbhc_cfg.calibration);
 	iounmap(msm9x15_i2s_ctl.sif_virt_addr);
 	iounmap(msm9x15_i2s_ctl.spare_virt_addr);

@@ -295,6 +295,12 @@ config SND_SOC_CS8427
 config SND_SOC_WCD9320
         tristate
 
+config SND_SOC_WCD9306
+        tristate
+
+config SND_SOC_MSM8X10_WCD
+	tristate
+
 config SND_SOC_WL1273
 	tristate
 
@@ -448,3 +454,10 @@ config SND_SOC_TPA6130A2
 
 config SND_SOC_MSM_STUB
 	tristate
+
+config SND_SOC_MSM_HDMI_CODEC_RX
+	bool "HDMI Audio Playback"
+	depends on FB_MSM_MDSS_HDMI_PANEL && SND_SOC_MSM8974
+	help
+	HDMI audio drivers should be built only if the platform
+        supports hdmi panel.

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2011, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,7 +27,7 @@
 #include <asm/dma.h>
 #include <linux/dma-mapping.h>
 #include <linux/delay.h>
-#include <linux/android_pmem.h>
+
 #include <mach/qdsp6v2/audio_dev_ctl.h>
 
 #include "msm8x60-pcm.h"

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2008-2009,2011 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2009,2011 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -48,6 +48,7 @@ struct audio_locks {
 	wait_queue_head_t write_wait;
 	wait_queue_head_t eos_wait;
 	wait_queue_head_t enable_wait;
+	wait_queue_head_t flush_wait;
 };
 
 struct msm_audio {
@@ -58,6 +59,7 @@ struct msm_audio {
 	uint16_t source; /* Encoding source bit mask */
 
 	struct audio_client *audio_client;
+	struct audio_client *enc_audio_client;
 
 	uint16_t session_id;
 
@@ -75,10 +77,21 @@ struct msm_audio {
 	atomic_t out_count;
 	atomic_t in_count;
 	atomic_t out_needed;
+	atomic_t eos;
 	int out_head;
 	int periods;
 	int mmap_flag;
 	atomic_t pending_buffer;
+	bool set_channel_map;
+	char channel_map[8];
+};
+
+struct output_meta_data_st {
+	uint32_t meta_data_length;
+	uint32_t frame_size;
+	uint32_t timestamp_lsw;
+	uint32_t timestamp_msw;
+	uint32_t reserved[12];
 };
 
 #endif /*_MSM_PCM_H*/
