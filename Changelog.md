@@ -19,6 +19,10 @@ of these repos and their contributors.
 
 Changelog
 ---------
+v0.44
+* Patch kernel from 3.4.94 to 3.4.95
+* SOUND: updating to MSM-3.4 drivers
+
 v0.43
 * Patch kernel from 3.4.93 to 3.4.94
 * QDSP Updates
