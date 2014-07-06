@@ -19,6 +19,15 @@ of these repos and their contributors.
 
 Changelog
 ---------
+v0.45
+* Patch kernel from 3.4.95 to 3.4.96
+* BFQ I/O scheduler v7r5
+* Replace prio_tree with rbtree
+* lib/genalloc.c & lib/decompress.c updates
+* msm: kgsl: Remove extra interrupts when setting MMU state
+* mm/vmscan updates
+* More... (see commit log)
+
 v0.44
 * Patch kernel from 3.4.94 to 3.4.95
 * SOUND: updating to MSM-3.4 drivers
