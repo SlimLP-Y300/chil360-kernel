@@ -987,12 +987,6 @@ void do_exit(long code)
 		tty_audit_exit();
 	audit_free(tsk);
 
-#ifdef CONFIG_HUAWEI_KERNEL
-	if( code != 0 ){
-		printk("%s: exit code=%lu\n", __func__, code);
-	}
-#endif
-
 	tsk->exit_code = code;
 	taskstats_exit(tsk, group_dead);
 
