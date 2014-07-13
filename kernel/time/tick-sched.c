@@ -916,8 +916,11 @@ void tick_setup_sched_timer(void)
 	}
 
 #ifdef CONFIG_NO_HZ
-	if (tick_nohz_enabled)
+	if (tick_nohz_enabled) {
 		ts->nohz_mode = NOHZ_MODE_HIGHRES;
+		pr_info("Switched to NOHz mode on CPU #%d\n",
+			  smp_processor_id());
+        }
 #endif
 }
 #endif /* HIGH_RES_TIMERS */
