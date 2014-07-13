@@ -240,10 +240,6 @@ void gen_pool_destroy(struct gen_pool *pool)
 	int order = pool->min_alloc_order;
 	int bit, end_bit;
 
-    /** jiazhifeng kgsl SR Created By: Xiaofeng Ling (9/26/2010 8:02 AM) **/
-#ifdef CONFIG_HUAWEI_KERNEL
-    spin_lock(&pool->lock);
-#endif
 	list_for_each_safe(_chunk, _next_chunk, &pool->chunks) {
 		int nbytes;
 		chunk = list_entry(_chunk, struct gen_pool_chunk, next_chunk);
@@ -260,9 +256,6 @@ void gen_pool_destroy(struct gen_pool *pool)
 		else
 			vfree(chunk);
 	}
-#ifdef CONFIG_HUAWEI_KERNEL
-    spin_unlock(&pool->lock);
-#endif
 	kfree(pool);
 	return;
 }
