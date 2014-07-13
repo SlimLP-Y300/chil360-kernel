@@ -19,6 +19,10 @@ of these repos and their contributors.
 
 Changelog
 ---------
+v0.46
+* Patch kernel from 3.4.96 to 3.4.98
+* Config Tweaks
+
 v0.45 R2
 * Patch kernel from 3.4.95 to 3.4.96
 * BFQ I/O scheduler v7r5
