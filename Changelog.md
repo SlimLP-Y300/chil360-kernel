@@ -19,6 +19,14 @@ of these repos and their contributors.
 
 Changelog
 ---------
+v0.47
+* Patch kernel from 3.4.98 to 3.4.99
+* acpuclock-7627.c: fixing table selection in select_freq_plan()
+* fs/buffer updates
+* binfmt_elf updates
+* ARM: hw_breakpoint updates
+* More... (see commit log)
+
 v0.46
 * Patch kernel from 3.4.96 to 3.4.98
 * Config Tweaks
