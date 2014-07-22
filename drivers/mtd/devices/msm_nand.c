@@ -3069,11 +3069,12 @@ static int msm_nand_write(struct mtd_info *mtd, loff_t to, size_t len,
 }
 
 
-#ifdef CONFIG_HUAWEI_KERNEL
+#if 0
+//#ifdef CONFIG_HUAWEI_KERNEL
 #include <asm/delay.h>
 extern int msm_dmov_exec_cmd_apanic(unsigned id, unsigned int cmdptr);
 
-/* msm_nand_write_oob_apanic is inherit from msm_nand_write_oob. 
+/* msm_nand_write_oob_apanic is inherit from msm_nand_write_oob.
  * when in panic the irq is lock, so all wait about irq is will not return,
  * we use the while poll to instead of the waitting operator.
  */
@@ -3352,10 +3353,10 @@ msm_nand_write_oob_apanic(struct mtd_info *mtd, loff_t to, struct mtd_oob_ops *o
             CMD_PTR_LP;
 
         mb();
-        /* we use the while poll to instead of the waitting 
+        /* we use the while poll to instead of the waitting
          * operator in msm_dmov_exec_cmd_apanic
          */
-		msm_dmov_exec_cmd_apanic(chip->dma_channel, 
+		msm_dmov_exec_cmd_apanic(chip->dma_channel,
             DMOV_CMD_PTR_LIST | DMOV_CMD_ADDR(
                 msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
         mb();
@@ -3417,7 +3418,7 @@ err_dma_map_oobbuf_failed:
     return err;
 }
 
-/* msm_nand_write_oob_dualnandc_apanic is inherit from msm_nand_write_oob_dualnandc. 
+/* msm_nand_write_oob_dualnandc_apanic is inherit from msm_nand_write_oob_dualnandc.
  * when in panic the irq is lock, so all wait about irq is will not return,
  * we use the while poll to instead of the waitting operator.
  */
@@ -3974,10 +3975,10 @@ msm_nand_write_oob_dualnandc_apanic(struct mtd_info *mtd, loff_t to,
         ((msm_virt_to_dma(chip, dma_buffer->cmd) >> 3) | CMD_PTR_LP);
 
         mb();
-        /* we use the while poll to instead of the waitting 
+        /* we use the while poll to instead of the waitting
          * operator in msm_dmov_exec_cmd_apanic
          */
-		msm_dmov_exec_cmd_apanic(chip->dma_channel, 
+		msm_dmov_exec_cmd_apanic(chip->dma_channel,
             DMOV_CMD_PTR_LIST | DMOV_CMD_ADDR(
                 msm_virt_to_dma(chip, &dma_buffer->cmdptr)));
         mb();
@@ -4050,7 +4051,7 @@ err_dma_map_oobbuf_failed:
     return err;
 }
 
-/* msm_nand_write_apanic is inherit from msm_nand_write. 
+/* msm_nand_write_apanic is inherit from msm_nand_write.
  * when in panic the irq is lock, so all wait about irq is will not return,
  * we use the while poll to instead of the waitting operator.
  */
@@ -7949,7 +7950,8 @@ int msm_nand_scan(struct mtd_info *mtd, int maxchips)
 	mtd->_unpoint = NULL;
 	mtd->_read = msm_nand_read;
 	mtd->_write = msm_nand_write;
-#ifdef CONFIG_HUAWEI_KERNEL
+#if 0
+//#ifdef CONFIG_HUAWEI_KERNEL
 	/* add for android panic support*/
 	mtd->_panic_write = msm_nand_write_apanic;
 #endif
