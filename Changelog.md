@@ -19,6 +19,14 @@ of these repos and their contributors.
 
 Changelog
 ---------
+v0.48
+* Patch kernel from 3.4.99 to 3.4.101
+* PM / Runtime updates
+* DMA upstream to CAF
+* ARM: mm: fix MMU mapping of CMA regions
+* sched: Fix HRTICK
+* More... (see commit log)
+
 v0.47
 * Patch kernel from 3.4.98 to 3.4.99
 * acpuclock-7627.c: fixing table selection in select_freq_plan()
