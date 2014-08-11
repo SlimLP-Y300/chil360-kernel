@@ -19,6 +19,12 @@ of these repos and their contributors.
 
 Changelog
 ---------
+v0.49
+* Patch kernel from 3.4.101 to 3.4.102
+* Random: updates
+* net: Performance fix for process_backlog
+* jbd2: calculate statistics without holding j_state_lock and j_list_lock
+
 v0.48
 * Patch kernel from 3.4.99 to 3.4.101
 * PM / Runtime updates
