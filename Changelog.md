@@ -19,6 +19,14 @@ of these repos and their contributors.
 
 Changelog
 ---------
+v0.50
+* Huawei Battery updates from moddingg33k
+* swp_emulate: updates
+* arm: common: fix cpaccess asm instruction
+* drivers/cpufreq: conservative: simplify SAMPLING_TIME determination for ARM
+* ARM: Allow arm_memblock_steal() to remove memory from any RAM region
+* More... (see commit log)
+
 v0.49
 * Patch kernel from 3.4.101 to 3.4.102
 * Random: updates
