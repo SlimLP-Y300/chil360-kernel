@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.4.103 Kernel Configuration
+# Linux/arm 3.4.104 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -1206,7 +1206,9 @@ CONFIG_REGMAP_I2C=y
 CONFIG_DMA_SHARED_BUFFER=y
 CONFIG_GENLOCK=y
 CONFIG_GENLOCK_MISCDEVICE=y
-# CONFIG_SYNC is not set
+CONFIG_SYNC=y
+CONFIG_SW_SYNC=y
+CONFIG_SW_SYNC_USER=y
 CONFIG_CMA=y
 # CONFIG_CMA_DEBUG is not set
 
