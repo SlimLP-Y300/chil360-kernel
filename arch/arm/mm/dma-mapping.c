@@ -780,6 +780,52 @@ void arm_dma_free(struct device *dev, size_t size, void *cpu_addr,
 	}
 }
 
+/*
+ * Make an area consistent for devices.
+ * Note: Drivers should NOT use this function directly, as it will break
+ * platforms with CONFIG_DMABOUNCE.
+ * Use the driver DMA support - see dma-mapping.h (dma_sync_*)
+ */
+void ___dma_single_cpu_to_dev(const void *kaddr, size_t size,
+	enum dma_data_direction dir)
+{
+#ifdef CONFIG_OUTER_CACHE
+	unsigned long paddr;
+
+	BUG_ON(!virt_addr_valid(kaddr) || !virt_addr_valid(kaddr + size - 1));
+#endif
+
+	dmac_map_area(kaddr, size, dir);
+
+#ifdef CONFIG_OUTER_CACHE
+	paddr = __pa(kaddr);
+	if (dir == DMA_FROM_DEVICE) {
+		outer_inv_range(paddr, paddr + size);
+	} else {
+		outer_clean_range(paddr, paddr + size);
+	}
+#endif
+	/* FIXME: non-speculating: flush on bidirectional mappings? */
+}
+EXPORT_SYMBOL(___dma_single_cpu_to_dev);
+
+void ___dma_single_dev_to_cpu(const void *kaddr, size_t size,
+	enum dma_data_direction dir)
+{
+#ifdef CONFIG_OUTER_CACHE
+	BUG_ON(!virt_addr_valid(kaddr) || !virt_addr_valid(kaddr + size - 1));
+
+	/* FIXME: non-speculating: not required */
+	/* don't bother invalidating if DMA to device */
+	if (dir != DMA_TO_DEVICE) {
+		unsigned long paddr = __pa(kaddr);
+		outer_inv_range(paddr, paddr + size);
+	}
+#endif
+	dmac_unmap_area(kaddr, size, dir);
+}
+EXPORT_SYMBOL(___dma_single_dev_to_cpu);
+
 static void dma_cache_maint_page(struct page *page, unsigned long offset,
 	size_t size, enum dma_data_direction dir,
 	void (*op)(const void *, size_t, int))
