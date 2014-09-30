@@ -930,6 +930,7 @@ power_down:
     mdelay(10);
 #ifdef SENSOR_POWER_CHECK_PATCH
 	s_ctrl->sensor_state = MSM_SENSOR_POWER_DOWN;
+#endif
 	return rc;
 }
 
