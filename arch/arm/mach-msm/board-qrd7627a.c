@@ -32,7 +32,7 @@
 #include <linux/input/ft5x06_ts.h>
 #include <linux/msm_adc.h>
 #include <linux/regulator/msm-gpio-regulator.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-contiguous.h>
 #include <asm/mach/mmc.h>

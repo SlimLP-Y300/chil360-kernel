@@ -50,7 +50,7 @@
 #include <linux/atmel_maxtouch.h>
 /* update Qcomm original  base line , delete 1 line for fmem disable and avoid deadlock*/
 #include <linux/msm_adc.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-contiguous.h>
 #include "devices.h"
