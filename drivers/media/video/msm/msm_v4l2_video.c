@@ -22,6 +22,7 @@
 #include <linux/msm_mdp.h>
 #include <linux/sched.h>
 #include <linux/capability.h>
+#include <linux/module.h>
 
 #include <media/v4l2-ioctl.h>
 #include <media/videobuf-dma-sg.h>
@@ -742,6 +743,9 @@ msm_v4l2_overlay_mmap(struct file *filp, struct vm_area_struct * vma)
 	unsigned long off = vma->vm_pgoff << PAGE_SHIFT;
 	u32 len = PAGE_ALIGN((start & ~PAGE_MASK) + v4l2_ram_size);
 
+	if (!start)
+		return -EINVAL;
+
 	/*
 	 * This is probably unnecessary now - the last PAGE_SHIFT
 	 * bits of start should be 0 now, since we are page aligning
@@ -749,16 +753,20 @@ msm_v4l2_overlay_mmap(struct file *filp, struct vm_area_struct * vma)
 	 */
 	start &= PAGE_MASK;
 
+	if ((vma->vm_end <= vma->vm_start) ||
+	    (off >= len) ||
+	    ((vma->vm_end - vma->vm_start) > (len - off))) {
+		pr_err("v4l2 map request, memory requested out of bounds\n");
+		return -EINVAL;
+	}
+
 	pr_debug("v4l2 map req for phys(%p,%p) offset %u to virt (%p,%p)\n",
 	(void *)(start+off), (void *)(start+off+(vma->vm_end - vma->vm_start)),
 	(unsigned int)off, (void *)vma->vm_start, (void *)vma->vm_end);
 
-	if ((vma->vm_end - vma->vm_start + off) > len) {
-		pr_err("v4l2 map request, memory requested too big\n");
-		return -EINVAL;
-	}
-
 	start += off;
+	if (start < off)
+		return -EINVAL;
 	vma->vm_pgoff = start >> PAGE_SHIFT;
 	/* This is an IO map - tell maydump to skip this VMA */
 	vma->vm_flags |= VM_IO | VM_RESERVED;
