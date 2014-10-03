@@ -808,41 +808,6 @@ unsigned int get_framebuffer_size(void)
 	
 }
 
-unsigned int get_mdp_pmem_size(void)
-{
-	unsigned int mdp_pmem_size = 0;
-	lcd_type lcd_resolution = LCD_IS_HVGA;
-	lcd_resolution = get_hw_lcd_resolution_type();
-	switch(lcd_resolution)
-	{
-		case LCD_IS_QVGA:
-		case LCD_IS_HVGA:
-			mdp_pmem_size = 0x1500000;  //21M
-			break;
-		case LCD_IS_WVGA:
-		case LCD_IS_FWVGA:
-#ifdef CONFIG_CHIL360_RAM_STOCK
-			mdp_pmem_size = 0x1C00000; //28M
-#elif defined(CONFIG_CHIL360_RAM_MEDIUM)
-			mdp_pmem_size = 0x1A00000; //26M
-#elif defined(CONFIG_CHIL360_RAM_HIGH)
-			mdp_pmem_size = 0x1400000; //20M
-#elif defined(CONFIG_CHIL360_RAM_EXTRA_HIGH)
-//			mdp_pmem_size = 0xB00000; //11M
-			mdp_pmem_size = 0x800000; //8mb
-#endif
-			break;
-		case LCD_IS_QHD:
-			mdp_pmem_size = 0x2300000; //35M
-			break;
-		default:
-			mdp_pmem_size = 0x2300000; //35M
-			break;
-	}
-	
-	return mdp_pmem_size;	
-}
-
 /*===========================================================================
 
 FUNCTION     get_vibrator_voltage

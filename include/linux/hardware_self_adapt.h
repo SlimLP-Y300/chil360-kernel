@@ -405,7 +405,6 @@ lcd_type get_hw_lcd_resolution_type(void);
 /*Add 4 framebuffer and delete the mem adapter strategy*/	
 unsigned int get_framebuffer_size(void);
 
-unsigned int get_mdp_pmem_size(void);
 uint get_vibrator_voltage(void);
 
 lcd_align_type get_lcd_align_type(void);

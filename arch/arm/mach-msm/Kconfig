@@ -1703,36 +1703,6 @@ config CHIL360_OC
   	help
     	  Unlock the overclock freq speed
 
-choice
-	prompt "Chil360 RAM Mapping"
-	default CHIL360_RAM_STOCK
-
-config CHIL360_RAM_STOCK
-  	bool "Stock (390MB free)"
-  	default n
-  	help
-    	  Unlock more free ram on y300/g510
- 
-config CHIL360_RAM_MEDIUM
-  	bool "Medium (397MB free)"
-  	default n
-  	help
-    	  Unlock more free ram on y300/g510
-
-config CHIL360_RAM_HIGH
-  	bool "High (404MB free)"
-  	default n
-  	help
-    	  Unlock more free ram on y300/g510
-
-config CHIL360_RAM_EXTRA_HIGH
-  	bool "Extra High (424MB free)"
-  	default n
-  	help
-    	  Unlock more free ram on y300/g510
-
-endchoice
-
 config MSM_AVS_HW
 	bool "Enable Adaptive Voltage Scaling (AVS)"
 	default n
