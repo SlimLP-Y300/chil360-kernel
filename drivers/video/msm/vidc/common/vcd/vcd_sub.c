@@ -811,8 +811,9 @@ u32 vcd_free_buffers_internal(
 			}
 		}
 
-    	vcd_reset_buffer_pool_for_reuse(buf_pool);
 	}
+
+	vcd_reset_buffer_pool_for_reuse(buf_pool);
 
 	return rc;
 }

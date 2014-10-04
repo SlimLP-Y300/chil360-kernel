@@ -399,7 +399,8 @@ void mdp_dma_lcdc_vsync_ctrl(int enable)
 		return;
 
 	spin_lock_irqsave(&mdp_spin_lock, flag);
-	/* delete two lines */
+	if (!enable)
+		INIT_COMPLETION(vsync_cntrl.vsync_wait);
 
 	vsync_cntrl.vsync_irq_enabled = enable;
 	if (!enable)
