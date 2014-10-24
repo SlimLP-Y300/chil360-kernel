@@ -885,6 +885,7 @@ static ssize_t audqcelp_in_read(struct file *file,
 	int rc = 0;
 	struct qcelp_encoded_meta_out meta_field;
 	struct audio_frame_nt *nt_frame;
+        memset(&meta_field, 0, sizeof(meta_field));
 	MM_DBG("count = %d\n", count);
 	mutex_lock(&audio->read_lock);
 	while (count > 0) {

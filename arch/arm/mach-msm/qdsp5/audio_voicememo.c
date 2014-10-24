@@ -454,9 +454,6 @@ static void process_rpc_request(uint32_t proc, uint32_t xid,
 			be32_to_cpu(datacb_data->rec_status));
 
 		/* Data recorded */
-		/* modify contidion MAX_FRAME_SIZE to MAX_REC_BUF_SIZE 
-		  * to fix voice record failure issue
-		  */
 		if ((rec_status == RPC_VOC_REC_STAT_DATA) ||
 		(rec_status == RPC_VOC_REC_STAT_DONE)) {
 			if (datacb_data->pkt.fw_data.fw_ptr_status &&

@@ -1,7 +1,7 @@
 /*
  * Common code to deal with the AUDPREPROC dsp task (audio preprocessing)
  *
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * Based on the audpp layer in arch/arm/mach-msm/qdsp5/audpp.c
  *
@@ -23,7 +23,7 @@
 #include <mach/debug_mm.h>
 #include <mach/qdsp5/qdsp5audpreproc.h>
 #include <mach/qdsp5/qdsp5audreccmdi.h>
-#include <mach/qdsp5v2/audio_acdbi.h>
+#include <mach/qdsp5/audio_acdbi.h>
 
 
 static DEFINE_MUTEX(audpreproc_lock);

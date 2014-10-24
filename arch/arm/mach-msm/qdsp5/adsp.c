@@ -3,7 +3,7 @@
  * Register/Interrupt access for userspace aDSP library.
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
  * Author: Iliyan Malchev <ibm@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -1501,7 +1501,9 @@ static int __init adsp_init(void)
 	if (msm_adsp_probe_work_queue == NULL)
 		return -ENOMEM;
 	msm_adsp_driver.driver.name = msm_adsp_driver_name;
+	preempt_disable();
 	rc = platform_driver_register(&msm_adsp_driver);
+	preempt_enable();
 	MM_INFO("%s -- %d\n", msm_adsp_driver_name, rc);
 	return rc;
 }

@@ -34,7 +34,7 @@
 #include <mach/qdsp5/qdsp5audpreproccmdi.h>
 #include <mach/qdsp5/qdsp5audpreprocmsg.h>
 #include <mach/qdsp5/qdsp5audppmsg.h>
-#include <mach/qdsp5/audio_acdbi.h>
+#include <mach/qdsp5/audio_acdbi2.h>
 #include <mach/qdsp5/acdb_commands.h>
 #include <mach/qdsp5/audio_acdb_def.h>
 #include <mach/debug_mm.h>
@@ -2274,11 +2274,9 @@ static void device_cb(struct dev_evt_msg *evt, void *private)
 			acdb_data.acdb_state &= ~CAL_DATA_READY;
 			goto update_cache;
 		}
-	} else{
+	} else
 		/* state is updated to query the modem for values */
-		acdb_data.audrec_applied &= ~AUDREC_READY;
 		acdb_data.acdb_state &= ~CAL_DATA_READY;
-	      }
 
 update_cache:
 	if (dev_type.tx_device) {
