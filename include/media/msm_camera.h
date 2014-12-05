@@ -28,7 +28,6 @@
 #endif
 
 /* modify for 4125 baseline */
-#include <linux/slab.h>
 #include <linux/ion.h>
 
 #define BIT(nr)   (1UL << (nr))
