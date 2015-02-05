@@ -1521,12 +1521,11 @@ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
 {
 	struct net_device *dev = ptr;
 	struct net *net = dev_net(dev);
-	struct netns_ipvs *ipvs = net_ipvs(net);
 	struct ip_vs_service *svc;
 	struct ip_vs_dest *dest;
 	unsigned int idx;
 
-	if (event != NETDEV_UNREGISTER || !ipvs)
+	if (event != NETDEV_UNREGISTER)
 		return NOTIFY_DONE;
 	IP_VS_DBG(3, "%s() dev=%s\n", __func__, dev->name);
 	EnterFunction(2);
@@ -1552,7 +1551,7 @@ static int ip_vs_dst_event(struct notifier_block *this, unsigned long event,
 		}
 	}
 
-	list_for_each_entry(dest, &ipvs->dest_trash, n_list) {
+	list_for_each_entry(dest, &net_ipvs(net)->dest_trash, n_list) {
 		__ip_vs_dev_reset(dest, dev);
 	}
 	mutex_unlock(&__ip_vs_mutex);
@@ -2311,7 +2310,10 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
 	    cmd == IP_VS_SO_SET_STOPDAEMON) {
 		struct ip_vs_daemon_user *dm = (struct ip_vs_daemon_user *)arg;
 
-		mutex_lock(&ipvs->sync_mutex);
+		if (mutex_lock_interruptible(&ipvs->sync_mutex)) {
+			ret = -ERESTARTSYS;
+			goto out_dec;
+		}
 		if (cmd == IP_VS_SO_SET_STARTDAEMON)
 			ret = start_sync_thread(net, dm->state, dm->mcast_ifn,
 						dm->syncid);
@@ -2321,7 +2323,11 @@ do_ip_vs_set_ctl(struct sock *sk, int cmd, void __user *user, unsigned int len)
 		goto out_dec;
 	}
 
-	mutex_lock(&__ip_vs_mutex);
+	if (mutex_lock_interruptible(&__ip_vs_mutex)) {
+		ret = -ERESTARTSYS;
+		goto out_dec;
+	}
+
 	if (cmd == IP_VS_SO_SET_FLUSH) {
 		/* Flush the virtual service */
 		ret = ip_vs_flush(net);
@@ -2596,7 +2602,9 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
 		struct ip_vs_daemon_user d[2];
 
 		memset(&d, 0, sizeof(d));
-		mutex_lock(&ipvs->sync_mutex);
+		if (mutex_lock_interruptible(&ipvs->sync_mutex))
+			return -ERESTARTSYS;
+
 		if (ipvs->sync_state & IP_VS_STATE_MASTER) {
 			d[0].state = IP_VS_STATE_MASTER;
 			strlcpy(d[0].mcast_ifn, ipvs->master_mcast_ifn,
@@ -2615,7 +2623,9 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
 		return ret;
 	}
 
-	mutex_lock(&__ip_vs_mutex);
+	if (mutex_lock_interruptible(&__ip_vs_mutex))
+		return -ERESTARTSYS;
+
 	switch (cmd) {
 	case IP_VS_SO_GET_VERSION:
 	{
@@ -2703,7 +2713,6 @@ do_ip_vs_get_ctl(struct sock *sk, int cmd, void __user *user, int *len)
 	{
 		struct ip_vs_timeout_user t;
 
-		memset(&t, 0, sizeof(t));
 		__ip_vs_get_timeouts(net, &t);
 		if (copy_to_user(user, &t, sizeof(t)) != 0)
 			ret = -EFAULT;
