@@ -28,7 +28,7 @@
 #endif
 
 /* modify for 4125 baseline */
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 #define BIT(nr)   (1UL << (nr))
 
