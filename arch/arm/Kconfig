@@ -142,6 +142,20 @@ config GENERIC_IRQ_PROBE
 	bool
 	default y
 
+config GENERIC_LOCKBREAK
+	bool
+	default y if !ARM_TICKET_LOCKS
+	depends on SMP && PREEMPT
+
+config ARM_TICKET_LOCKS
+	bool
+	help
+	  Enable ticket locks, which help preserve fairness among
+	  contended locks and prevent livelock in multicore systems.
+	  Say 'y' if system stability is important.
+	default y if ARCH_MSM_SCORPIONMP || ARCH_MSM_KRAITMP
+	depends on SMP
+
 config RWSEM_GENERIC_SPINLOCK
 	bool
 
