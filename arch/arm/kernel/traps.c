@@ -896,7 +896,7 @@ void __init early_trap_init(void *vectors_base)
 
 	flush_icache_range(vectors, vectors + PAGE_SIZE * 2);
 	modify_domain(DOMAIN_USER, DOMAIN_CLIENT);
-#ifdef CONFIG_HUAWEI_KERNEL
+#if defined (CONFIG_HUAWEI_KERNEL) && defined(CONFIG_DEBUG_USER)
 	user_debug = UDBG_UNDEFINED|UDBG_BADABORT|UDBG_SEGV;
 #endif
 }
