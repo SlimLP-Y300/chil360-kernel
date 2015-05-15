@@ -1008,9 +1008,10 @@ config CC_OPTIMIZE_FAST
 endchoice
 
 config CCACHE
-         bool "Use CCACHE with gcc"
-         help
-           Enabling this option will use ccache when compiling.
+	bool "Use CCACHE with gcc"
+	default y
+	help
+	  Enabling this option will use ccache when compiling.
 
 config SYSCTL
 	bool
