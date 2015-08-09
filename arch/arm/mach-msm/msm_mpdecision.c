@@ -5,6 +5,7 @@
  * -cpu auto-hotplug/unplug based on system load for MSM multicore cpus
  * -single core while screen is off
  * -extensive sysfs tuneables
+ * -deep integration with MSM-Thermal-X
  *
  * Copyright (c) 2012-2013, Dennis Rassmann <showp1984@gmail.com>
  * Copyright (c) 2014-2015, Yusuf Mostafa <ymostafa30@gmail.com>
@@ -102,7 +103,7 @@ static struct msm_mpdec_tuners {
 
 static u64 last_input_time;
 
-static unsigned int NwNs_Threshold[8] = {12, 0, 20, 7, 25, 10, 0, 18};
+static unsigned int NwNs_Threshold[8] = {12, 0, 25, 7, 30, 10, 0, 18};
 static unsigned int TwTs_Threshold[8] = {140, 0, 140, 190, 140, 190, 0, 190};
 
 extern unsigned int get_rq_info(void);
