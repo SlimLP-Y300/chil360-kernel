@@ -74,6 +74,7 @@ static struct msm_mpdec_tuners {
 	unsigned long int idle_freq;
 	unsigned int max_cpus;
 	unsigned int min_cpus;
+        u64 last_input_time;
 #ifdef CONFIG_MSM_MPDEC_INPUTBOOST_CPUMIN
 	bool boost_enabled;
 	unsigned int boost_time;
@@ -98,6 +99,8 @@ static struct msm_mpdec_tuners {
 	},
 #endif
 };
+
+static u64 last_input_time;
 
 static unsigned int NwNs_Threshold[8] = {12, 0, 20, 7, 25, 10, 0, 18};
 static unsigned int TwTs_Threshold[8] = {140, 0, 140, 190, 140, 190, 0, 190};
@@ -461,8 +464,13 @@ static void mpdec_input_callback(struct work_struct *unused) {
 static void mpdec_input_event(struct input_handle *handle, unsigned int type,
 				unsigned int code, int value) {
 	int i = 0;
+        u64 now;
 
 	if (!msm_mpdec_tuners_ins.boost_enabled)
+		return;
+
+        now = ktime_to_us(ktime_get());
+	if (now - last_input_time < MIN_INPUT_INTERVAL)
 		return;
 
 	if (!is_screen_on)
@@ -471,6 +479,7 @@ static void mpdec_input_event(struct input_handle *handle, unsigned int type,
 	for_each_online_cpu(i) {
 		queue_work_on(i, mpdec_input_wq, &per_cpu(mpdec_input_work, i));
 	}
+        last_input_time = ktime_to_us(ktime_get());
 }
 
 static int input_dev_filter(const char *input_dev_name) {
