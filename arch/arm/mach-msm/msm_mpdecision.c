@@ -647,10 +647,28 @@ static void msm_mpdec_early_suspend(struct early_suspend *h) {
 	mutex_unlock(&mpdec_msm_susres_lock);
 }
 
+static void wakeup_boost(void)
+{
+	unsigned int i, ret;
+	struct cpufreq_policy policy;
+
+	for_each_online_cpu(i) {
+
+		ret = cpufreq_get_policy(&policy, i);
+		if (ret)
+			continue;
+
+		policy.cur = policy.max;
+
+		cpufreq_update_policy(i);
+	}
+}
+
 static void msm_mpdec_late_resume(struct early_suspend *h) {
 	mutex_lock(&mpdec_msm_susres_lock);
 	schedule_work(&msm_mpdec_resume_work);
 	mutex_unlock(&mpdec_msm_susres_lock);
+        wakeup_boost();
 }
 
 static struct early_suspend msm_mpdec_early_suspend_handler = {
