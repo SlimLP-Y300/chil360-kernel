@@ -4610,7 +4610,7 @@ void idle_balance(int this_cpu, struct rq *this_rq)
 	for_each_domain(this_cpu, sd) {
 		unsigned long interval;
 		int balance = 1;
-		u64 t0, domain_cost;
+		u64 t0, domain_cost, max = 5*sysctl_sched_migration_cost;
 
 		if (!(sd->flags & SD_LOAD_BALANCE))
 			continue;
@@ -4626,6 +4626,8 @@ void idle_balance(int this_cpu, struct rq *this_rq)
 						   sd, CPU_NEWLY_IDLE, &balance);
 
 			domain_cost = sched_clock_cpu(smp_processor_id()) - t0;
+			if (domain_cost > max)
+				domain_cost = max;
 
 			if (domain_cost > sd->max_newidle_lb_cost)
 				sd->max_newidle_lb_cost = domain_cost;
