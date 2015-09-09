@@ -154,6 +154,7 @@ enum zone_stat_item {
 #ifdef CONFIG_UKSM
 	NR_UKSM_ZERO_PAGES,
 #endif
+	NR_SWAPCACHE,
 	NR_VM_ZONE_STAT_ITEMS };
 
 /*
