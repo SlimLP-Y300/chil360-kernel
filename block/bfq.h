@@ -1,5 +1,5 @@
 /*
- * BFQ-v7r7 for 3.4.0: data structures and common functions prototypes.
+ * BFQ-v7r8 for 3.4.0: data structures and common functions prototypes.
  *
  * Based on ideas and code from CFQ:
  * Copyright (C) 2003 Jens Axboe <axboe@kernel.dk>
@@ -218,21 +218,18 @@ struct bfq_group;
  *                      idle @bfq_queue with no outstanding requests, then
  *                      the task associated with the queue it is deemed as
  *                      soft real-time (see the comments to the function
- *                      bfq_bfqq_softrt_next_start())
+ *                      bfq_bfqq_softrt_next_start()).
  * @last_idle_bklogged: time of the last transition of the @bfq_queue from
  *                      idle to backlogged
  * @service_from_backlogged: cumulative service received from the @bfq_queue
  *                           since the last transition from idle to
  *                           backlogged
- * @bic: pointer to the bfq_io_cq owning the bfq_queue, set to %NULL if the
- *	 queue is shared
  *
- * A bfq_queue is a leaf request queue; it can be associated with an
- * io_context or more, if it  is  async or shared  between  cooperating
- * processes. @cgroup holds a reference to the cgroup, to be sure that it
- * does not disappear while a bfqq still references it (mostly to avoid
- * races between request issuing and task migration followed by cgroup
- * destruction).
+ * A bfq_queue is a leaf request queue; it can be associated with an io_context
+ * or more, if it is async or shared between cooperating processes. @cgroup
+ * holds a reference to the cgroup, to be sure that it does not disappear while
+ * a bfqq still references it (mostly to avoid races between request issuing and
+ * task migration followed by cgroup destruction).
  * All the fields are protected by the queue lock of the containing bfqd.
  */
 struct bfq_queue {
@@ -272,7 +269,6 @@ struct bfq_queue {
 	unsigned int requests_within_timer;
 
 	pid_t pid;
-	struct bfq_io_cq *bic;
 
 	/* weight-raising fields */
 	unsigned long wr_cur_max_time;
@@ -302,41 +298,12 @@ struct bfq_ttime {
  * @icq: associated io_cq structure
  * @bfqq: array of two process queues, the sync and the async
  * @ttime: associated @bfq_ttime struct
- * @wr_time_left: snapshot of the time left before weight raising ends
- *                for the sync queue associated to this process; this
- *		  snapshot is taken to remember this value while the weight
- *		  raising is suspended because the queue is merged with a
- *		  shared queue, and is used to set @raising_cur_max_time
- *		  when the queue is split from the shared queue and its
- *		  weight is raised again
- * @saved_idle_window: same purpose as the previous field for the idle
- *                     window
- * @saved_IO_bound: same purpose as the previous two fields for the I/O
- *                  bound classification of a queue
- * @saved_in_large_burst: same purpose as the previous fields for the
- *                        value of the field keeping the queue's belonging
- *                        to a large burst
- * @was_in_burst_list: true if the queue belonged to a burst list
- *                     before its merge with another cooperating queue
- * @cooperations: counter of consecutive successful queue merges underwent
- *                by any of the process' @bfq_queues
- * @failed_cooperations: counter of consecutive failed queue merges of any
- *                       of the process' @bfq_queues
  */
 struct bfq_io_cq {
 	struct io_cq icq; /* must be the first member */
 	struct bfq_queue *bfqq[2];
 	struct bfq_ttime ttime;
-
-	unsigned int wr_time_left;
-	bool saved_idle_window;
-	bool saved_IO_bound;
-
-	bool saved_in_large_burst;
-	bool was_in_burst_list;
-
-	unsigned int cooperations;
-	unsigned int failed_cooperations;
+	int ioprio;
 };
 
 enum bfq_device_speed {
@@ -418,7 +385,6 @@ enum bfq_device_speed {
  * @group_list: list of all the bfq_groups active on the device.
  * @active_list: list of all the bfq_queues active on the device.
  * @idle_list: list of all the bfq_queues idle on the device.
- * @bfq_quantum: max number of requests dispatched per dispatch round.
  * @bfq_fifo_expire: timeout for async/sync requests; when it expires
  *                   requests are served in fifo order.
  * @bfq_back_penalty: weight of backward seeks wrt forward ones.
@@ -526,7 +492,6 @@ struct bfq_data {
 	struct list_head active_list;
 	struct list_head idle_list;
 
-	unsigned int bfq_quantum;
 	unsigned int bfq_fifo_expire[2];
 	unsigned int bfq_back_penalty;
 	unsigned int bfq_back_max;
@@ -569,10 +534,9 @@ enum bfqq_state_flags {
 	BFQ_BFQQ_FLAG_must_alloc,	/* must be allowed rq alloc */
 	BFQ_BFQQ_FLAG_fifo_expire,	/* FIFO checked in this slice */
 	BFQ_BFQQ_FLAG_idle_window,	/* slice idling enabled */
-	BFQ_BFQQ_FLAG_prio_changed,	/* task priority has changed */
 	BFQ_BFQQ_FLAG_sync,		/* synchronous queue */
 	BFQ_BFQQ_FLAG_budget_new,	/* no completion with this budget */
-	BFQ_BFQQ_FLAG_IO_bound,		/*
+	BFQ_BFQQ_FLAG_IO_bound,         /*
 					 * bfqq has timed-out at least once
 					 * having consumed at most 2/10 of
 					 * its budget
@@ -585,13 +549,12 @@ enum bfqq_state_flags {
 					 * bfqq has proved to be slow and
 					 * seeky until budget timeout
 					 */
-	BFQ_BFQQ_FLAG_softrt_update,	/*
+	BFQ_BFQQ_FLAG_softrt_update,    /*
 					 * may need softrt-next-start
 					 * update
 					 */
 	BFQ_BFQQ_FLAG_coop,		/* bfqq is shared */
-	BFQ_BFQQ_FLAG_split_coop,	/* shared bfqq will be split */
-	BFQ_BFQQ_FLAG_just_split,	/* queue has just been split */
+	BFQ_BFQQ_FLAG_split_coop,	/* shared bfqq will be splitted */
 };
 
 #define BFQ_BFQQ_FNS(name)						\
@@ -613,7 +576,6 @@ BFQ_BFQQ_FNS(wait_request);
 BFQ_BFQQ_FNS(must_alloc);
 BFQ_BFQQ_FNS(fifo_expire);
 BFQ_BFQQ_FNS(idle_window);
-BFQ_BFQQ_FNS(prio_changed);
 BFQ_BFQQ_FNS(sync);
 BFQ_BFQQ_FNS(budget_new);
 BFQ_BFQQ_FNS(IO_bound);
@@ -621,7 +583,6 @@ BFQ_BFQQ_FNS(in_large_burst);
 BFQ_BFQQ_FNS(constantly_seeky);
 BFQ_BFQQ_FNS(coop);
 BFQ_BFQQ_FNS(split_coop);
-BFQ_BFQQ_FNS(just_split);
 BFQ_BFQQ_FNS(softrt_update);
 #undef BFQ_BFQQ_FNS
 
@@ -794,8 +755,8 @@ static inline void bfq_put_bfqd_unlock(struct bfq_data *bfqd,
 	spin_unlock_irqrestore(bfqd->queue->queue_lock, *flags);
 }
 
-static void bfq_changed_ioprio(struct io_context *ioc,
-			       struct bfq_io_cq *bic);
+static void bfq_check_ioprio_change(struct io_context *ioc,
+				    struct bfq_io_cq *bic);
 static void bfq_put_queue(struct bfq_queue *bfqq);
 static void bfq_dispatch_insert(struct request_queue *q, struct request *rq);
 static struct bfq_queue *bfq_get_queue(struct bfq_data *bfqd,
