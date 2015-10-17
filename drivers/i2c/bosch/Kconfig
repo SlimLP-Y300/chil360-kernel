@@ -1,0 +1,11 @@
+config SENSORS_BMA250
+	tristate "BMA250 Acceleration Sensor Driver"
+	depends on I2C
+	help
+	 BMA250 Acceleration Sensor Driver implemented by Bosch-Sensortec.
+
+config SENSORS_BMM050
+	tristate "BMM050 Magnetic Sensor Driver"
+	depends on I2C
+	help
+	 BMM050 Magnetic Sensor Driver implemented by Bosch-Sensortec.
