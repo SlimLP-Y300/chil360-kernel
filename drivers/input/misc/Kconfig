@@ -668,4 +668,12 @@ config  HUAWEI_FEATURE_PROXIMITY_EVERLIGHT_APS_9900
 
           To compile this driver as a module, choose M here: the
           module will be called aps-9900.
+
+config INPUT_LTR558_D9
+	tristate "LTR558 light/proximity sensor support"
+	depends on I2C
+	default n
+	help
+	  Driver for D9 LTR558 light/proximity sensor.
+
 endif

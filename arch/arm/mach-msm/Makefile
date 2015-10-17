@@ -238,9 +238,105 @@ obj-$(CONFIG_ARCH_MSM7X27) += clock-pcom-lookup.o
 obj-$(CONFIG_MACH_MSM7X27_SURF) += board-msm7x27.o devices-msm7x27.o
 obj-$(CONFIG_MACH_MSM7X27_FFA) += board-msm7x27.o devices-msm7x27.o
 obj-$(CONFIG_ARCH_MSM7X27A) += clock-pcom-lookup.o devices-msm7x27a.o
+# begin modify by zxb 20121218
+ifdef CONFIG_MACH_MSM7X27A_D9
+board-7627a-all-objs += board-msm7627a-storage.o board-msm7627a_d9-bt.o board-msm7627a_d9-camera.o
+board-7627a-all-objs += audio-7627a-devices.o
+board-7627a-all-objs += board-msm7627a_d9-display.o board-msm7627a_d9-wlan.o board-msm7627a_d9-io.o board-msm7627a_d9-sensor.o
+endif
+ifdef CONFIG_MACH_MSM7X27A_D9C
+board-7627a-all-objs += board-msm7627a-storage.o board-msm7627a_d9c-bt.o board-msm7627a_d9c-camera.o
+board-7627a-all-objs += audio-7627a-devices.o
+board-7627a-all-objs += board-msm7627a_d9c-display.o board-msm7627a_d9c-wlan.o board-msm7627a_d9c-io.o board-msm7627a_d9c-sensor.o
+endif
+ifdef CONFIG_MACH_MSM7X27A_I6
+board-7627a-all-objs += board-msm7627a-storage.o board-msm7627a_i6-bt.o board-msm7627a_i6-camera.o
+board-7627a-all-objs += audio-7627a-devices.o
+board-7627a-all-objs += board-msm7627a_i6-display.o board-msm7627a_i6-wlan.o board-msm7627a_i6-io.o board-msm7627a_i6-sensor.o
+endif
+ifdef CONFIG_MACH_MSM7X27A_I6C
+board-7627a-all-objs += board-msm7627a-storage.o board-msm7627a_i6c-bt.o board-msm7627a_i6c-camera.o
+board-7627a-all-objs += audio-7627a-devices.o
+board-7627a-all-objs += board-msm7627a_i6c-display.o board-msm7627a_i6c-wlan.o board-msm7627a_i6c-io.o board-msm7627a_i6c-sensor.o
+endif
+ifdef CONFIG_MACH_MSM7X27A_I6C_SMARTFREN
+board-7627a-all-objs += board-msm7627a-storage.o board-msm7627a_i6c_smartfren-bt.o board-msm7627a_i6c_smartfren-camera.o
+board-7627a-all-objs += audio-7627a-devices.o
+board-7627a-all-objs += board-msm7627a_i6c_smartfren-display.o board-msm7627a_i6c_smartfren-wlan.o board-msm7627a_i6c_smartfren-io.o board-msm7627a_i6c_smartfren-sensor.o
+endif
+ifndef CONFIG_MACH_MSM7X27A_D9
+ifndef CONFIG_MACH_MSM7X27A_D9C
+ifndef CONFIG_MACH_MSM7X27A_I6
+ifndef CONFIG_MACH_MSM7X27A_I6C
+ifndef CONFIG_MACH_MSM7X27A_I6C_SMARTFREN
 board-7627a-all-objs += board-msm7627a-storage.o board-msm7627a-bt.o board-msm7627a-camera.o
 board-7627a-all-objs += audio-7627a-devices.o
 board-7627a-all-objs += board-msm7627a-display.o board-msm7627a-wlan.o board-msm7627a-io.o
+endif
+endif
+endif
+endif
+endif
+ifdef CONFIG_MACH_MSM7X27A_D9
+obj-$(CONFIG_MACH_MSM7X27A_RUMI3) += board-msm7x27a_d9.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7X27A_SURF) += board-msm7x27a_d9.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7X27A_FFA) += board-msm7x27a_d9.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7627A_QRD1) += board-qrd7627a_d9.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7627A_QRD3) += board-qrd7627a_d9.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7627A_EVB) += board-qrd7627a_d9.o board-7627a-all.o
+obj-$(CONFIG_ARCH_MSM8625) += msm_smem_iface.o clock-pcom-lookup.o mpm-8625.o
+obj-$(CONFIG_MACH_MSM8625_RUMI3) += board-msm7x27a_d9.o
+obj-$(CONFIG_MACH_MSM8625_SURF) +=  board-msm7x27a_d9.o board-7627a-all.o
+endif
+ifdef CONFIG_MACH_MSM7X27A_D9C
+obj-$(CONFIG_MACH_MSM7X27A_RUMI3) += board-msm7x27a_d9c.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7X27A_SURF) += board-msm7x27a_d9c.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7X27A_FFA) += board-msm7x27a_d9c.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7627A_QRD1) += board-qrd7627a_d9c.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7627A_QRD3) += board-qrd7627a_d9c.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7627A_EVB) += board-qrd7627a_d9c.o board-7627a-all.o
+obj-$(CONFIG_ARCH_MSM8625) += msm_smem_iface.o clock-pcom-lookup.o mpm-8625.o
+obj-$(CONFIG_MACH_MSM8625_RUMI3) += board-msm7x27a_d9c.o
+obj-$(CONFIG_MACH_MSM8625_SURF) +=  board-msm7x27a_d9c.o board-7627a-all.o
+endif
+ifdef CONFIG_MACH_MSM7X27A_I6
+obj-$(CONFIG_MACH_MSM7X27A_RUMI3) += board-msm7x27a_i6.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7X27A_SURF) += board-msm7x27a_i6.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7X27A_FFA) += board-msm7x27a_i6.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7627A_QRD1) += board-qrd7627a_i6.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7627A_QRD3) += board-qrd7627a_i6.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7627A_EVB) += board-qrd7627a_i6.o board-7627a-all.o
+obj-$(CONFIG_ARCH_MSM8625) += msm_smem_iface.o clock-pcom-lookup.o mpm-8625.o
+obj-$(CONFIG_MACH_MSM8625_RUMI3) += board-msm7x27a_i6.o
+obj-$(CONFIG_MACH_MSM8625_SURF) +=  board-msm7x27a_i6.o board-7627a-all.o
+endif
+ifdef CONFIG_MACH_MSM7X27A_I6C
+obj-$(CONFIG_MACH_MSM7X27A_RUMI3) += board-msm7x27a_i6c.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7X27A_SURF) += board-msm7x27a_i6c.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7X27A_FFA) += board-msm7x27a_i6c.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7627A_QRD1) += board-qrd7627a_i6c.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7627A_QRD3) += board-qrd7627a_i6c.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7627A_EVB) += board-qrd7627a_i6c.o board-7627a-all.o
+obj-$(CONFIG_ARCH_MSM8625) += msm_smem_iface.o clock-pcom-lookup.o mpm-8625.o
+obj-$(CONFIG_MACH_MSM8625_RUMI3) += board-msm7x27a_i6c.o
+obj-$(CONFIG_MACH_MSM8625_SURF) +=  board-msm7x27a_i6c.o board-7627a-all.o
+endif
+ifdef CONFIG_MACH_MSM7X27A_I6C_SMARTFREN
+obj-$(CONFIG_MACH_MSM7X27A_RUMI3) += board-msm7x27a_i6c_smartfren.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7X27A_SURF) += board-msm7x27a_i6c_smartfren.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7X27A_FFA) += board-msm7x27a_i6c_smartfren.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7627A_QRD1) += board-qrd7627a_i6c_smartfren.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7627A_QRD3) += board-qrd7627a_i6c_smartfren.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM7627A_EVB) += board-qrd7627a_i6c_smartfren.o board-7627a-all.o
+obj-$(CONFIG_ARCH_MSM8625) += msm_smem_iface.o clock-pcom-lookup.o mpm-8625.o
+obj-$(CONFIG_MACH_MSM8625_RUMI3) += board-msm7x27a_i6c_smartfren.o
+obj-$(CONFIG_MACH_MSM8625_SURF) +=  board-msm7x27a_i6c_smartfren.o board-7627a-all.o
+endif
+ifndef CONFIG_MACH_MSM7X27A_D9
+ifndef CONFIG_MACH_MSM7X27A_D9C
+ifndef CONFIG_MACH_MSM7X27A_I6
+ifndef CONFIG_MACH_MSM7X27A_I6C
+ifndef CONFIG_MACH_MSM7X27A_I6C_SMARTFREN
 obj-$(CONFIG_MACH_MSM7X27A_RUMI3) += board-msm7x27a.o board-7627a-all.o
 obj-$(CONFIG_MACH_MSM7X27A_SURF) += board-msm7x27a.o board-7627a-all.o
 obj-$(CONFIG_MACH_MSM7X27A_FFA) += board-msm7x27a.o board-7627a-all.o
@@ -250,6 +346,46 @@ obj-$(CONFIG_MACH_MSM7627A_EVB) += board-qrd7627a.o board-7627a-all.o
 obj-$(CONFIG_ARCH_MSM8625) += msm_smem_iface.o devices-msm7x27a.o clock-pcom-lookup.o mpm-8625.o
 obj-$(CONFIG_MACH_MSM8625_RUMI3) += board-msm7x27a.o
 obj-$(CONFIG_MACH_MSM8625_SURF) +=  board-msm7x27a.o board-7627a-all.o
+endif
+endif
+endif
+endif
+endif
+ifdef CONFIG_MACH_MSM7X27A_D9
+obj-$(CONFIG_MACH_MSM8625_EVB) +=  board-qrd7627a_d9.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM8625_QRD7) += board-qrd7627a_d9.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM8625_FFA) += board-msm7x27a_d9.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM8625_QRD5) += board-msm7x27a_d9.o board-7627a-all.o
+endif
+ifdef CONFIG_MACH_MSM7X27A_D9C
+obj-$(CONFIG_MACH_MSM8625_EVB) +=  board-qrd7627a_d9c.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM8625_QRD7) += board-qrd7627a_d9c.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM8625_FFA) += board-msm7x27a_d9c.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM8625_QRD5) += board-msm7x27a_d9c.o board-7627a-all.o
+endif
+ifdef CONFIG_MACH_MSM7X27A_I6
+obj-$(CONFIG_MACH_MSM8625_EVB) +=  board-qrd7627a_i6.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM8625_QRD7) += board-qrd7627a_i6.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM8625_FFA) += board-msm7x27a_i6.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM8625_QRD5) += board-msm7x27a_i6.o board-7627a-all.o
+endif
+ifdef CONFIG_MACH_MSM7X27A_I6C
+obj-$(CONFIG_MACH_MSM8625_EVB) +=  board-qrd7627a_i6c.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM8625_QRD7) += board-qrd7627a_i6c.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM8625_FFA) += board-msm7x27a_i6c.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM8625_QRD5) += board-msm7x27a_i6c.o board-7627a-all.o
+endif
+ifdef CONFIG_MACH_MSM7X27A_I6C_SMARTFREN
+obj-$(CONFIG_MACH_MSM8625_EVB) +=  board-qrd7627a_i6c_smartfren.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM8625_QRD7) += board-qrd7627a_i6c_smartfren.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM8625_FFA) += board-msm7x27a_i6c_smartfren.o board-7627a-all.o
+obj-$(CONFIG_MACH_MSM8625_QRD5) += board-msm7x27a_i6c_smartfren.o board-7627a-all.o
+endif
+ifndef CONFIG_MACH_MSM7X27A_D9
+ifndef CONFIG_MACH_MSM7X27A_D9C
+ifndef CONFIG_MACH_MSM7X27A_I6
+ifndef CONFIG_MACH_MSM7X27A_I6C
+ifndef CONFIG_MACH_MSM7X27A_I6C_SMARTFREN
 obj-$(CONFIG_MACH_MSM8625_EVB) +=  board-qrd7627a.o board-7627a-all.o
 obj-$(CONFIG_MACH_MSM8625_QRD7) +=  board-qrd7627a.o board-7627a-all.o
 
@@ -257,6 +393,13 @@ obj-$(CONFIG_ARCH_MSM7X30) += board-hw7x30.o devices-msm7x30.o memory_topology.o
 
 obj-$(CONFIG_MACH_MSM8625_FFA) += board-msm7x27a.o board-7627a-all.o
 obj-$(CONFIG_MACH_MSM8625_EVT) += board-msm7x27a.o board-7627a-all.o
+endif
+endif
+endif
+endif
+endif
+#end modify by zxb 20121218
+
 obj-$(CONFIG_ARCH_MSM7X30) += board-msm7x30.o devices-msm7x30.o memory_topology.o
 obj-$(CONFIG_ARCH_MSM7X30) += clock-local.o clock-7x30.o acpuclock-7x30.o clock-pll.o
 obj-$(CONFIG_MACH_MSM7X25_SURF) += board-msm7x27.o devices-msm7x25.o

@@ -494,6 +494,93 @@ config MACH_MSM7X27A_FFA
         help
           Support for the Qualcomm MSM7x27A FFA.
 
+#begin add by zxb 20121218
+config MACH_MSM7X27A_D9
+        depends on ARCH_MSM7X27A
+        depends on !MSM_STACKED_MEMORY
+        depends on JSR_D9
+        default n
+        bool "MSM7x27A D9"
+        help
+          Support for the Qualcomm MSM7x27A: innos D9.
+
+
+config JSR_D9
+	depends on ARCH_MSM7X27A
+	bool "MSM7x27A  D9"
+	select MACH_MSM7X27A_D9
+	help
+	  Support for the Qualcomm MSM7x27A  :innos D9.
+
+config MACH_MSM7X27A_D9C
+        depends on ARCH_MSM7X27A
+        depends on !MSM_STACKED_MEMORY
+        depends on JSR_D9C
+        default n
+        bool "MSM7x27A D9C"
+        help
+          Support for the Qualcomm MSM7x27A: innos D9C.
+
+
+config JSR_D9C
+	depends on ARCH_MSM7X27A
+	bool "MSM7x27A  D9C"
+	select MACH_MSM7X27A_D9C
+	help
+	  Support for the Qualcomm MSM7x27A  :innos D9C.
+
+config MACH_MSM7X27A_I6
+        depends on ARCH_MSM7X27A
+        depends on !MSM_STACKED_MEMORY
+        depends on JSR_I6
+        default n
+        bool "MSM7x27A I6"
+        help
+          Support for the Qualcomm MSM7x27A: innos I6.
+
+
+config JSR_I6
+	depends on ARCH_MSM7X27A
+	bool "MSM7x27A  I6"
+	select MACH_MSM7X27A_I6
+	help
+	  Support for the Qualcomm MSM7x27A  :innos I6.
+	  
+config MACH_MSM7X27A_I6C
+        depends on ARCH_MSM7X27A
+        depends on !MSM_STACKED_MEMORY
+        depends on JSR_I6C
+        default n
+        bool "MSM7x27A I6C"
+        help
+          Support for the Qualcomm MSM7x27A: innos I6C.
+
+
+config JSR_I6C
+	depends on ARCH_MSM7X27A
+	bool "MSM7x27A  I6C"
+	select MACH_MSM7X27A_I6C
+	help
+	  Support for the Qualcomm MSM7x27A  :innos I6C.
+
+config MACH_MSM7X27A_I6C_SMARTFREN
+        depends on ARCH_MSM7X27A
+        depends on !MSM_STACKED_MEMORY
+        depends on JSR_I6C_SMARTFREN
+        default n
+        bool "MSM7x27A I6C SMARTFREN"
+        help
+          Support for the Qualcomm MSM7x27A: innos I6C SMARTFREN.
+
+
+config JSR_I6C_SMARTFREN
+	depends on ARCH_MSM7X27A
+	bool "MSM7x27A  I6C SMARTFREN"
+	select MACH_MSM7X27A_I6C_SMARTFREN
+	help
+	  Support for the Qualcomm MSM7x27A  :innos I6C SMARTFREN.
+
+#end add by zxb 20121218
 config MACH_MSM7625A_SURF
         depends on ARCH_MSM7X27A
         depends on !MSM_STACKED_MEMORY

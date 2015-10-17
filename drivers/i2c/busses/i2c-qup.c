@@ -145,11 +145,13 @@ enum msm_i2c_state {
 
 static char const * const i2c_rsrcs[] = {"i2c_clk", "i2c_sda"};
 
+#if 0  //linxc 2012-12-24 for I2c recovery issue
 static struct gpiomux_setting recovery_config = {
 	.func = GPIOMUX_FUNC_GPIO,
 	.drv = GPIOMUX_DRV_8MA,
 	.pull = GPIOMUX_PULL_NONE,
 };
+#endif
 
 /**
  * qup_i2c_clk_path_vote: data to use bus scaling driver for clock path vote
@@ -885,7 +887,76 @@ qup_set_wr_mode(struct qup_i2c_dev *dev, int rem)
 	return ret;
 }
 
+#if 1  //linxc 2012-12-24 for I2c recovery issue
+static void qup_i2c_recover_bus_busy(struct qup_i2c_dev *dev)
+{
+	int i;
+	int gpio_clk = dev->pdata->pri_clk; 
+	int gpio_dat  = dev->pdata->pri_dat;
+	bool gpio_clk_status = false;
+	uint32_t status = readl_relaxed(dev->base + QUP_I2C_STATUS);
 
+	if (!(status & (I2C_STATUS_BUS_ACTIVE)) ||
+		(status & (I2C_STATUS_BUS_MASTER)))
+		return;
+
+	dev_warn(dev->dev, "linxc i2c_scl pin: %d, i2c_sda pin: %d\n",
+		 gpio_clk, gpio_dat);
+
+    if (!gpio_clk && !gpio_dat)
+        return ;
+
+	disable_irq(dev->err_irq);
+
+     if (dev->pdata->msm_i2c_config_gpio)
+    	dev->pdata->msm_i2c_config_gpio(dev->adapter.nr, 0);
+    else
+    	goto recovery_end;
+	
+	dev_warn(dev->dev, "i2c_scl: %d, i2c_sda: %d\n",
+		 gpio_get_value(gpio_clk), gpio_get_value(gpio_dat));
+
+	for (i = 0; i < 9; i++) {
+		if (gpio_get_value(gpio_dat) && gpio_clk_status)
+			break;
+		gpio_direction_output(gpio_clk, 0);
+		udelay(5);
+		gpio_direction_output(gpio_dat, 0);
+		udelay(5);
+		gpio_direction_input(gpio_clk);
+		udelay(5);
+		if (!gpio_get_value(gpio_clk))
+			udelay(20);
+		if (!gpio_get_value(gpio_clk))
+			usleep_range(10000, 10000);
+		gpio_clk_status = gpio_get_value(gpio_clk);
+		gpio_direction_input(gpio_dat);
+		udelay(5);
+	}
+
+	/* Configure ALT funciton to QUP I2C*/
+       if (dev->pdata->msm_i2c_config_gpio)
+    	    dev->pdata->msm_i2c_config_gpio(dev->adapter.nr, 1);
+
+	udelay(10);
+
+	status = readl_relaxed(dev->base + QUP_I2C_STATUS);
+	if (!(status & I2C_STATUS_BUS_ACTIVE)) {
+		dev_info(dev->dev, "Bus busy cleared after %d clock cycles, "
+			 "status %x\n",
+			 i, status);
+		goto recovery_end;
+	}
+
+	dev_warn(dev->dev, "Bus still busy, status %x\n", status);	
+
+recovery_end:
+	dev_warn(dev->dev,"linxc qup_i2c_recover_bus_busy  recovery_end\n");
+
+	enable_irq(dev->err_irq);
+}
+
+#else
 static void qup_i2c_recover_bus_busy(struct qup_i2c_dev *dev)
 {
 	int i;
@@ -961,6 +1032,7 @@ static void qup_i2c_recover_bus_busy(struct qup_i2c_dev *dev)
 recovery_end:
 	enable_irq(dev->err_irq);
 }
+#endif
 
 static int
 qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
@@ -1172,8 +1244,12 @@ qup_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 				idx, rem, num, dev->mode);
 
 			qup_print_status(dev);
+		#if 1	//linxc 2012-12-24 for I2c recovery issue
+			timeout = wait_for_completion_timeout(&complete, HZ);
+		#else
 			timeout = wait_for_completion_timeout(&complete,
 					msecs_to_jiffies(dev->out_fifo_sz));
+		#endif
 			if (!timeout) {
 				uint32_t istatus = readl_relaxed(dev->base +
 							QUP_I2C_STATUS);

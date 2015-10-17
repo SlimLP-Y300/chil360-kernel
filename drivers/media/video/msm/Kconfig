@@ -163,6 +163,12 @@ config WEBCAM_OV7692_QRD
 	default n
 	---help---
 	  Omni Vision VGA YUV Sensor for QRD Devices
+config GC0339
+	bool "Sensor GC0339 QRD(VGA RAW)"
+	depends on MSM_CAMERA
+	default y
+	---help---
+	  Galaxy Core VGA RAW Sensor for QRD Devices
 config MT9M114
         bool "Sensor MT9M114 (YUV 1.26M)"
         depends on MSM_CAMERA
@@ -174,6 +180,12 @@ config WEBCAM_OV7692
 	default y
 	---help---
 	  Omni Vision VGA YUV Sensor.
+config OV2675
+	bool "Sensor ov2675 (YUV 2M)"
+	depends on MSM_CAMERA
+	default n
+	---help---
+	  OV 2M YUV MIPI sensor
 config WEBCAM_OV9726
 	bool "Sensor OV9726 (VGA Bayer)"
 	depends on MSM_CAMERA && (ARCH_MSM8X60 || ARCH_MSM7X30 || ARCH_MSM7X27A)
@@ -342,6 +354,14 @@ config OV8825
 	  It is a Bayer 8MP sensor with auto focus and it supports
 	  two mipi lanes, required for msm8625 platform.
 	  Say Y here if this is msm8625 variant platform.
+config OV8825_TRULY_CM8313
+	bool "Sensor ov8825_truly_cm8313 (Omnivision 8M)"
+	depends on MSM_CAMERA
+	---help---
+	  Support for OV8825_TRULY_CM8313 sensor driver.
+	  It is a Bayer 8MP sensor with auto focus and it supports
+	  two mipi lanes, required for msm8625 platform.
+	  Say Y here if this is msm8625 variant platform.	  
 
 config VB6801
 	bool "Sensor vb6801"

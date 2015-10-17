@@ -60,5 +60,6 @@ obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
 obj-$(CONFIG_PMIC8058_OTHC)             += pmic8058-othc.o
 obj-$(CONFIG_INPUT_PMIC8058_VIBRA_MEMLESS) += pmic8058-vib-memless.o
 obj-$(CONFIG_BOSCH_BMA150)              += bma150.o
+obj-$(CONFIG_INPUT_LTR558_D9)		+= ltr558_d9.o
 obj-$(CONFIG_HUAWEI_FEATURE_PROXIMITY_EVERLIGHT_APS_12D)  += aps-12d.o
 obj-$(CONFIG_HUAWEI_FEATURE_PROXIMITY_EVERLIGHT_APS_9900)  += aps-9900.o

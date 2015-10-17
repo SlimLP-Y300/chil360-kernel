@@ -13,5 +13,7 @@ obj-$(CONFIG_HUAWEI_FEATURE_GYROSCOPE_L3G4200DH) += gyroscope/
 
 obj-$(CONFIG_HUAWEI_I2C_DEBUG_TOOL)  += huawei_i2c_debug.o
 
+obj-$(CONFIG_SENSORS_BMA250)	+= bosch/
+
 ccflags-$(CONFIG_I2C_DEBUG_CORE) := -DDEBUG
 CFLAGS_i2c-core.o := -Wno-deprecated-declarations

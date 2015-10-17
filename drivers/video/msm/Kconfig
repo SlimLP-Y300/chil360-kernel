@@ -220,6 +220,24 @@ config FB_MSM_MIPI_DSI_ORISE
 config FB_MSM_MIPI_DSI_NT35516
 	bool
 	select FB_MSM_MIPI_DSI
+#linxc 12-06-19 +++  	
+config FB_MSM_MIPI_DSI_NT35516_SHARP
+	bool
+	select FB_MSM_MIPI_DSI	
+#linxc 12-06-19 ---	
+
+
+#zhou 2012-08-04 +++  	
+config FB_MSM_MIPI_DSI_RS69324_HITACHI
+	bool
+	select FB_MSM_MIPI_DSI	
+#zhou 2012-08-04 ---	
+
+# added begin by hjl for nt35516 2012-0827
+config FB_MSM_MIPI_DSI_NT35516_NOVATEK
+	bool
+	select FB_MSM_MIPI_DSI
+# added end by hjl for nt35516 2012-0827
 
 config FB_MSM_MIPI_DSI_TC358764_DSI2LVDS
 	bool
@@ -504,6 +522,39 @@ config FB_MSM_MIPI_NT35516_CMD_QHD_PT
         select FB_MSM_MIPI_DSI_NT35516
         default n
 
+#linxc 12-06-19 +++  
+config FB_MSM_MIPI_NT35516_VIDEO_SHARP_QHD_PT
+				bool
+				select FB_MSM_MIPI_DSI_NT35516_SHARP
+				default n
+#linxc 12-06-19 ---			
+#linxc 12-08-23 +++  
+config FB_MSM_MIPI_NT35516_CMD_SHARP_QHD_PT
+				bool
+				select FB_MSM_MIPI_DSI_NT35516_SHARP
+				default n
+#linxc 12-08-23 ---			
+
+
+#zhou 2012-08-04 +++  
+config FB_MSM_MIPI_RS69324_VIDEO_HITACHI_QHD_PT
+	bool
+	select FB_MSM_MIPI_DSI_RS69324_HITACHI
+	default n
+#zhou 2012-08-04 ---				
+
+# added begin by hjl for nt35516 2012-0827
+config FB_MSM_MIPI_NT35516_VIDEO_NOVATEK_QHD_PT
+	bool
+	select FB_MSM_MIPI_DSI_NT35516_NOVATEK
+	default n
+# added end by hjl for nt35516 2012-0827	
+# added begin by hjl for nt35516 cmd mode 2012-0921
+config FB_MSM_MIPI_NT35516_CMD_NOVATEK_QHD_PT
+	bool
+	select FB_MSM_MIPI_DSI_NT35516_NOVATEK
+	default n
+# added end by hjl for nt35516 cmd mode 2012-0921 		
 
 config FB_MSM_MIPI_CHIMEI_WXGA
 	bool "LVDS Chimei WXGA Panel using Toshiba MIPI DSI-to-LVDS bridge."
@@ -681,6 +732,22 @@ config FB_MSM_MIPI_PANEL_DETECT
 	select FB_MSM_MIPI_ORISE_CMD_720P_PT
 	select FB_MSM_MIPI_NT35516_VIDEO_QHD_PT
 	select FB_MSM_MIPI_NT35516_CMD_QHD_PT
+	#linxc 12-06-19 +++  
+	select FB_MSM_MIPI_NT35516_VIDEO_SHARP_QHD_PT
+	#linxc 12-06-19 ---
+	#linxc 12-08-23 +++  
+	select FB_MSM_MIPI_NT35516_CMD_SHARP_QHD_PT
+	#linxc 12-08-23 ---	
+
+	#zhou 2012-08-04 +++  
+	select FB_MSM_MIPI_RS69324_VIDEO_HITACHI_QHD_PT
+	#zhou 2012-08-04 ---
+	# added begin by hjl for nt35516 2012-0827
+	select FB_MSM_MIPI_NT35516_VIDEO_NOVATEK_QHD_PT
+	# added end by hjl for nt35516 2012-0827
+	# added begin by hjl for nt35516 cmd mode 2012-0921
+	select FB_MSM_MIPI_NT35516_CMD_NOVATEK_QHD_PT
+	# added end by hjl for nt35516 cmd mode 2012-0921
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
 	select FB_MSM_MIPI_CHIMEI_WXGA
 	select FB_MSM_MIPI_CHIMEI_WUXGA
@@ -721,6 +788,22 @@ config FB_MSM_LCDC_MIPI_PANEL_AUTO_DETECT
 	select FB_MSM_MIPI_NT35510_CMD_WVGA_PT
 	select FB_MSM_MIPI_NT35516_VIDEO_QHD_PT
 	select FM_MSM_MIPI_NT35516_CMD_QHD_PT
+  #linxc 12-06-19 +++  	
+	select FB_MSM_MIPI_NT35516_VIDEO_SHARP_QHD_PT
+	#linxc 12-06-19 ---
+  #linxc 12-08-23 +++  	
+	select FB_MSM_MIPI_NT35516_CMD_SHARP_QHD_PT
+	#linxc 12-08-23 ---	
+
+	#zhou 2012-08-04 +++  
+	select FB_MSM_MIPI_RS69324_VIDEO_HITACHI_QHD_PT
+	#zhou 2012-08-04 ---
+	# added begin by hjl for nt35516 2012-0827
+	select FB_MSM_MIPI_NT35516_VIDEO_NOVATEK_QHD_PT
+	# added end by hjl for nt35516 2012-0827
+	# added begin by hjl for nt35516 cmd mode 2012-0921
+	select FB_MSM_MIPI_NT35516_CMD_NOVATEK_QHD_PT
+	# added end by hjl for nt35516 cmd mode 2012-0921
 	select FB_MSM_MIPI_SIMULATOR_VIDEO
 	---help---
 	  Support for LCDC + MIPI panel auto detect
@@ -841,6 +924,36 @@ config FB_MSM_MIPI_NT35516_CMD_QHD_PT_PANEL
         bool "MIPI NT35516 Command qHD PT Panel"
         select FB_MSM_MIPI_NT35516_CMD_QHD_PT
 
+#linxc 12-06-19 +++        
+config FB_MSM_MIPI_NT35516_VIDEO_SHARP_QHD_PT_PANEL
+        bool "MIPI NT35516 video SHARP QHD PT Panel"
+        select FB_MSM_MIPI_NT35516_VIDEO_SHARP_QHD_PT
+#linxc 12-06-19 ---    
+
+#linxc 12-08-23 +++        
+config FB_MSM_MIPI_NT35516_CMD_SHARP_QHD_PT_PANEL
+        bool "MIPI NT35516 Command SHARP QHD PT Panel"
+        select FB_MSM_MIPI_NT35516_CMD_SHARP_QHD_PT
+#linxc 12-08-23 --              
+
+
+
+#zhou 2012-08-04 +++        
+config FB_MSM_MIPI_RS69324_VIDEO_HITACHI_QHD_PT_PANEL
+        bool "MIPI NT35516 video SHARP QHD PT Panel"
+        select FB_MSM_MIPI_RS69324_VIDEO_HITACHI_QHD_PT
+#zhou 2012-08-04 ---  
+  
+# added begin by hjl for nt35516 2012-0827
+config FB_MSM_MIPI_NT35516_VIDEO_NOVATEK_QHD_PT_PANEL
+        bool "MIPI NT35516 video NOVATEK QHD PT Panel"
+        select FB_MSM_MIPI_NT35516_VIDEO_NOVATEK_QHD_PT
+# added end by hjl for nt35516  2012-0827  
+# added begin by hjl for nt35516 cmd mode 2012-0921
+config FB_MSM_MIPI_NT35516_CMD_NOVATEK_QHD_PT_PANEL
+        bool "MIPI NT35516 cmd NOVATEK QHD PT Panel"
+        select FB_MSM_MIPI_NT35516_CMD_NOVATEK_QHD_PT
+# added end by hjl for nt35516 cmd mode 2012-0921      
 config FB_MSM_MIPI_SIMULATOR_VIDEO_PANEL
 	bool "MIPI Simulator Video Panel"
 	select FB_MSM_MIPI_SIMULATOR_VIDEO

@@ -119,4 +119,6 @@ config I2C_DEBUG_BUS
 	  a problem with I2C support and want to see more of what is going
 	  on.
 
+source "drivers/i2c/bosch/Kconfig"
+
 endif # I2C

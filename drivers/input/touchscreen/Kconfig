@@ -946,6 +946,35 @@ config TOUCHSCREEN_FT5X06
          To compile this driver as a module, choose M here: the
          module will be called ft5x06_ts.
 
+#linxc 12-06-29 +++
+config TOUCHSCREEN_HIMAX
+        tristate "Himax touchscreen driver"
+        depends on I2C
+        default n
+        help
+          Say Y here to enable the driver for the Himax touchscreen
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called himax_ts
+                
+#linxc 12-06-29  ---
+#added begin by hjl 2012-1224
+config TOUCHSCREEN_ELAN_KTF2K
+        tristate "Elan ktf2k touchscreen driver"
+        depends on I2C
+        default n
+        help
+          Say Y here to enable the driver for the Elan ktf2k touchscreen
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called ktf2k
+                
+#added end by hjl 2012-1224
+
 config HUAWEI_FEATURE_RMI_TOUCH
        tristate "Synaptics RMI4 based touchscreens"
        depends on I2C
