@@ -98,16 +98,12 @@ MODULE_PARM_DESC(
  * Internal function. Schedule delayed work in the MMC work queue.
  */
 /*we want mmc_schedule_delayed_work to run in source code of msm_sdcc*/
-#ifdef CONFIG_HUAWEI_KERNEL
 int mmc_schedule_delayed_work(struct delayed_work *work,
 				     unsigned long delay)
-#else
-static int mmc_schedule_delayed_work(struct delayed_work *work,
-				     unsigned long delay)
-#endif
 {
 	return queue_delayed_work(workqueue, work, delay);
 }
+EXPORT_SYMBOL(mmc_schedule_delayed_work);
 
 /*
  * Internal function. Flush all scheduled work from the MMC work queue.

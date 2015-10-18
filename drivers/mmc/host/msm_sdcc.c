@@ -5153,7 +5153,8 @@ static void msmsdcc_early_suspend(struct early_suspend *h)
 	host->mmc->caps &= ~MMC_CAP_NEEDS_POLL;
 	spin_unlock_irqrestore(&host->lock, flags);
     /*we delete scan sdcard work which will run 20s later and force it runs now*/
-#ifndef CONFIG_HUAWEI_KERNEL    
+//#ifdef CONFIG_HUAWEI_KERNEL
+#if 0
     if (SDCC_SDCARD_SLOT == host->pdev_id )
     {
         if( (machine_is_msm8255_c8860())

@@ -1544,7 +1544,9 @@ static void mmc_detect(struct mmc_host *host)
 /*
  * Restore ios setting
  */
-#ifndef CONFIG_HUAWEI_KERNEL
+/*Hynic mmc cannot wakeup using awake function, fix it temporarily*/
+//#ifdef CONFIG_HUAWEI_KERNEL
+#if 0
 static void mmc_restore_ios(struct mmc_host *host)
 {
 	BUG_ON(!host);
@@ -1605,8 +1607,8 @@ static int mmc_resume(struct mmc_host *host)
 	mmc_claim_host(host);
 	
 	/*Hynic mmc cannot wakeup using awake function, fix it temporarily*/
-#ifndef CONFIG_HUAWEI_KERNEL
-	
+//#ifdef CONFIG_HUAWEI_KERNEL
+#if 0
 	if (mmc_card_is_sleep(host->card)) {
 		mmc_restore_ios(host);
 		err = mmc_card_awake(host);

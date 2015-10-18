@@ -203,10 +203,8 @@ extern int mmc_flush_cache(struct mmc_card *);
 
 extern int mmc_detect_card_removed(struct mmc_host *host);
 
-#ifndef CONFIG_HUAWEI_KERNEL
 extern int mmc_schedule_delayed_work(struct delayed_work *work,
 				     unsigned long delay);
-#endif
 
 /**
  *	mmc_claim_host - exclusively claim a host
