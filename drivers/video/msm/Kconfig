@@ -612,7 +612,7 @@ config FB_MSM_WRITEBACK_MSM_PANEL
 	  Support for MDP4 OVERLAY write back mode
 choice
 	prompt "LCD Panel"
-	default FB_MSM_MDDI_AUTO_DETECT
+	default FB_MSM_MIPI_JSR_PANEL_DETECT
 
 config FB_MSM_LCDC_PRISM_WVGA_PANEL
 	depends on FB_MSM_LCDC_HW
@@ -753,6 +753,16 @@ config FB_MSM_MIPI_PANEL_DETECT
 	select FB_MSM_MIPI_CHIMEI_WUXGA
 	---help---
 	  Support for MIPI panel auto detect
+
+config FB_MSM_MIPI_JSR_PANEL_DETECT
+	bool "MIPI JSR Panel Detect"
+	select FB_MSM_MIPI_NT35516_VIDEO_SHARP_QHD_PT
+	select FB_MSM_MIPI_NT35516_CMD_SHARP_QHD_PT
+	select FB_MSM_MIPI_NT35516_VIDEO_NOVATEK_QHD_PT
+	select FB_MSM_MIPI_NT35516_CMD_NOVATEK_QHD_PT
+	---help---
+	  Support for MIPI JSR panel auto detect
+
 
 config FB_MSM_MDDI_PANEL_AUTO_DETECT
 	bool "MDDI Panel Auto Detect"
