@@ -2207,7 +2207,7 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 /* < lishubin update baseline to J version begin */
 #ifndef CONFIG_HUAWEI_KERNEL
-	struct msm_fb_panel_data *pdata;
+	//struct msm_fb_panel_data *pdata;
 #endif
 /* lishubin update baseline to J version end > */
 
