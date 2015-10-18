@@ -25,6 +25,8 @@
 #include "board-msm7627a.h"
 #include <mach/vreg.h>
 
+#ifdef CONFIG_MSM_CAMERA
+
 #define GPIO_SKU1_CAM_VGA_SHDN    18
 #define GPIO_SKU1_CAM_VGA_RESET_N 29
 #define GPIO_SKU3_CAM_5MP_SHDN_N   5         /* PWDN */
@@ -2166,3 +2168,12 @@ void __init msm7627a_camera_init(void)
 					ARRAY_SIZE(i2c_camera_devices_skud));
 		}
 }
+
+#else 
+
+void __init msm7627a_camera_init(void)
+{
+	return;
+}
+
+#endif  // CONFIG_MSM_CAMERA
