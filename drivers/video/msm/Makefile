@@ -120,6 +120,7 @@ obj-$(CONFIG_FB_MSM_MIPI_DSI_NT35516) += mipi_truly_tft540960_1_e.o
 #linxc 12-06-19 +++  
 obj-$(CONFIG_FB_MSM_MIPI_DSI_NT35516_SHARP) += mipi_novatek_d9_qhd_sharp.o
 #linxc 12-06-19 ---
+obj-$(CONFIG_FB_MSM_MIPI_DSI_NT35516_NOVATEK) += mipi_nt35516_i6_qhd_novatek.o
 
 
 # added end by hjl for nt35516 2012-0827
@@ -168,6 +169,7 @@ obj-y += mipi_truly_tft540960_1_e_video_qhd_pt.o mipi_truly_tft540960_1_e_cmd_qh
 #linxc 12-06-19 +++  
 obj-y += mipi_novatek_d9_video_qhd_sharp_pt.o mipi_novatek_d9_cmd_qhd_sharp_pt.o
 #linxc 12-06-19 ---
+obj-y += mipi_nt35516_novatek_video_qhd_pt.o mipi_nt35516_novatek_cmd_qhd_pt.o
 
 obj-y += mipi_chimei_wxga_pt.o
 obj-y += mipi_chimei_wuxga.o
@@ -194,6 +196,9 @@ obj-$(CONFIG_FB_MSM_MIPI_NT35516_VIDEO_SHARP_QHD_PT) += mipi_novatek_d9_video_qh
 #linxc 12-08-23 +++  
 obj-$(CONFIG_FB_MSM_MIPI_NT35516_CMD_SHARP_QHD_PT) += mipi_novatek_d9_cmd_qhd_sharp_pt.o
 #linxc 12-08-23 ---
+
+obj-$(CONFIG_FB_MSM_MIPI_NT35516_VIDEO_NOVATEK_QHD_PT) += mipi_nt35516_novatek_video_qhd_pt.o
+obj-$(CONFIG_FB_MSM_MIPI_NT35516_CMD_NOVATEK_QHD_PT) += mipi_nt35516_novatek_cmd_qhd_pt.o
 
 
 obj-$(CONFIG_FB_MSM_MIPI_SIMULATOR_VIDEO) += mipi_simulator_video.o
