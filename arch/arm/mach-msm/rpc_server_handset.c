@@ -94,6 +94,7 @@
 
 #define KEY(hs_key, input_key) ((hs_key << 24) | input_key)
 
+#ifdef CONFIG_HUAWEI_FEATURE_OEMINFO
 enum mschine_type{
     HW_MACHINE_8X55 = 0,
     HW_MACHINE_7X2725A,
@@ -129,7 +130,7 @@ static int get_current_machine()
         return HW_MACHINE_7X2725A;
     }
 }
-
+#endif
 		
 enum hs_event {
 	HS_EVNT_EXT_PWR = 0,	/* External Power status        */
@@ -846,7 +847,9 @@ static void power_key_dump(void)
 #else
 void del_power_key_timer(void){}
 EXPORT_SYMBOL(del_power_key_timer);
+#ifdef CONFIG_HUAWEI_KERNEL
 static void power_key_dump(void){}
+#endif
 #endif
 
 /*
