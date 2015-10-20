@@ -321,6 +321,8 @@ static inline int is_vmalloc_or_module_addr(const void *x)
 }
 #endif
 
+extern void kvfree(const void *addr);
+
 static inline void compound_lock(struct page *page)
 {
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
@@ -1152,6 +1154,11 @@ static inline void update_hiwater_vm(struct mm_struct *mm)
 {
 	if (mm->hiwater_vm < mm->total_vm)
 		mm->hiwater_vm = mm->total_vm;
+}
+
+static inline void reset_mm_hiwater_rss(struct mm_struct *mm)
+{
+	mm->hiwater_rss = get_mm_rss(mm);
 }
 
 static inline void setmax_mm_hiwater_rss(unsigned long *maxrss,
