@@ -494,7 +494,7 @@ int msm_unregister_domain(struct iommu_domain *domain)
 }
 EXPORT_SYMBOL(msm_unregister_domain);
 
-+static int iommu_domain_probe(struct platform_device *pdev)
+static int iommu_domain_probe(struct platform_device *pdev)
 {
 	struct iommu_domains_pdata *p  = pdev->dev.platform_data;
 	int i, j;
