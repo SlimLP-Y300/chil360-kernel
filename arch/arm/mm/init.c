@@ -439,6 +439,8 @@ void __init arm_memblock_init(struct meminfo *mi, struct machine_desc *mdesc)
 
 	max_low = max_high = 0;
 	find_limits(&min, &max_low, &max_high);
+	pr_info("meminfo.nr_banks = %d \n", (int)meminfo.nr_banks);
+	pr_info("high_memory = 0x%lx (virt: 0x%lx) \n", (long)__virt_to_phys((unsigned long)high_memory), (long)high_memory);
 	reserve_persist_ram(__pfn_to_phys(max_low), __pfn_to_phys(max_high));
 
 	/* reserve any platform specific memblock areas */
@@ -485,6 +487,8 @@ void __init bootmem_init(void)
 	max_low = max_high = 0;
 
 	find_limits(&min, &max_low, &max_high);
+	pr_info("%s: min = %d, max_low = 0x%x, max_high = 0x%x \n", 
+		__func__, (int)min, (int)max_low, (int)max_high);
 
 	arm_bootmem_init(min, max_low);
 

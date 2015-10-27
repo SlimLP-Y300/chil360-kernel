@@ -524,6 +524,7 @@ static int __init_memblock __memblock_remove(struct memblock_type *type,
 	int i, ret;
 
 	ret = memblock_isolate_range(type, base, size, &start_rgn, &end_rgn);
+	pr_info("MemBlock remove at 0x%08lx, size: 0x%lx, ret = %d \n", (long)base, (long)size, ret);
 	if (ret)
 		return ret;
 
