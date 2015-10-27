@@ -397,6 +397,7 @@ void __init find_membank0_hole(void)
 void __init arm_memblock_init(struct meminfo *mi, struct machine_desc *mdesc)
 {
 	int i;
+	unsigned long min, max_low, max_high;
 
 #ifndef CONFIG_DONT_MAP_HOLE_AFTER_MEMBANK0
 	sort(&meminfo.bank, meminfo.nr_banks, sizeof(meminfo.bank[0]), meminfo_cmp, NULL);
@@ -435,6 +436,10 @@ void __init arm_memblock_init(struct meminfo *mi, struct machine_desc *mdesc)
 
 	arm_mm_memblock_reserve();
 	arm_dt_memblock_reserve();
+
+	max_low = max_high = 0;
+	find_limits(&min, &max_low, &max_high);
+	reserve_persist_ram(__pfn_to_phys(max_low), __pfn_to_phys(max_high));
 
 	/* reserve any platform specific memblock areas */
 	if (mdesc->reserve)

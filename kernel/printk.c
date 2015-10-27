@@ -48,6 +48,10 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
 
+#include <linux/io.h>
+#include <linux/vmalloc.h>
+
+
 /*
  * Architectures can override it:
  */
@@ -725,8 +729,23 @@ static void call_console_drivers(unsigned start, unsigned end)
 	_call_console_drivers(start_print, end, msg_level);
 }
 
+static int log_no_ring = 0;
+
+static int __init log_no_ring_setup(char *str)
+{
+	get_option(&str, &log_no_ring);
+	return 0;
+}
+early_param("log_no_ring", log_no_ring_setup);
+
+static inline void emit_log_char_pmem(char c);
+
 static void emit_log_char(char c)
 {
+	if (log_no_ring && log_end - log_start >= log_buf_len) return;
+
+	emit_log_char_pmem(c);
+
 	LOG_BUF(log_end) = c;
 	log_end++;
 	if (log_end - log_start > log_buf_len)
@@ -1888,3 +1907,187 @@ void kmsg_dump(enum kmsg_dump_reason reason)
 	rcu_read_unlock();
 }
 #endif
+
+/* ----------------------- new config params ------------------------ */
+
+#define PRAM_START_1GB_DEF   (0x35000000)
+#define PRAM_START_768MB_DEF (0x26000000)
+#define PRAM_SIZE_DEFAULT    (SZ_1M)
+#define PMEM_LOG_SIZE        (SZ_1M)
+
+static uint32_t persist_ram_size = PRAM_SIZE_DEFAULT;
+static int pmem_log_cnt = 0;
+
+static int __init persist_ram_size_setup(char *str)
+{
+	persist_ram_size = memparse(str, &str);
+	if (persist_ram_size)
+		persist_ram_size = roundup_pow_of_two(persist_ram_size);
+  return 0;
+}
+early_param("pram_size", persist_ram_size_setup);
+
+static int __init pmem_log_cnt_setup(char *str)
+{
+	get_option(&str, &pmem_log_cnt);
+	return 0;
+}
+early_param("pmemlog", pmem_log_cnt_setup);
+
+/* ----------------------- persistent ram size ------------------------ */
+
+static phys_addr_t pmem_start = 0;
+static int pmem_size = 0;
+
+int get_persist_ram_size(int full)
+{
+	if (!full)
+		return (int)persist_ram_size;
+	return (int)persist_ram_size + (pmem_log_cnt > 0 ? PMEM_LOG_SIZE : 0);
+}
+
+int get_persist_ram_status(void)
+{
+  if (!persist_ram_size && !pmem_log_cnt) return 0;
+	if (!pmem_start) return -1;
+	if (persist_ram_size > 0) return 1;
+	if (pmem_log_cnt > 0) return 1;
+	return 0;
+}
+
+phys_addr_t get_persist_ram_info(int idx, int * size)
+{
+	if (get_persist_ram_status() <= 0)
+		return 0;
+	if (idx == 0) {
+		if (size)
+			*size = (int)persist_ram_size;
+		return persist_ram_size ? pmem_start : 0;
+	}
+	if (size)
+		*size = (pmem_log_cnt > 0) ? PMEM_LOG_SIZE : 0;
+	return (pmem_log_cnt > 0) ? pmem_start + persist_ram_size : 0;
+}
+
+int reserve_persist_ram(phys_addr_t max_low, phys_addr_t max_high)
+{
+	phys_addr_t base;
+	phys_addr_t size;
+	int rc;
+	
+	pr_info("%s: max_low = 0x%lx, max_high = 0x%lx \n", __func__, (long)max_low, (long)max_high);
+	size = (phys_addr_t)get_persist_ram_size(1);
+	pr_info("%s: needed size = 0x%lx \n", __func__, (long)size);
+	if (!size)
+		return 0;	
+	//base = (max_high > PRAM_START_2GB_DEF) ? PRAM_START_2GB_DEF : PRAM_START_1GB_DEF;
+	base = PRAM_START_1GB_DEF;
+	rc = memblock_reserve(base, size);
+	if (rc) {
+		pr_err("Failed to reserve persistent ram at 0x%lx (size = 0x%lx) \n", (long)base, (long)size);
+		return -ENOMEM;
+	}
+	pmem_start = base;
+	pmem_size = (int)size;
+	pr_info("reserve persistent ram at 0x%lx (size = 0x%lx) \n", (long)base, (long)size);
+	return 0;
+}
+
+/* ----------------- custom pmem log sys --------------------------------- */
+
+struct pmem_header_t {
+	int magic;
+	int cur_zone;
+	int zone_cnt[2];
+};
+
+static void   * pmem_virt = NULL;
+static uint32_t pmem_log_size = 0;
+static int      pmem_log_beg = 0;
+static void   * pmem_log_p = NULL;
+
+#define PMEM_MAGIC      (0xFACEFACE)
+#define PMEM_LOG_PAGES  (PMEM_LOG_SIZE / PAGE_SIZE)
+#define PMEM_ZONE_SIZE  (PMEM_LOG_SIZE / 2 - sizeof(struct pmem_header_t))
+
+int pmem_log_get_size(void)
+{
+	return (pmem_log_cnt > 0) ? PMEM_LOG_SIZE : 0;
+}
+
+int pmem_log_init(void)
+{
+  uint32_t x;
+	pgprot_t prot;
+	struct page **pages;
+	phys_addr_t base;
+	phys_addr_t addr;
+	struct pmem_header_t * hdr;
+	int cur_zone = 0;
+
+	base = get_persist_ram_info(1, NULL);
+	if (!base) return -ENOMEM;
+	if (pmem_virt) return 1;  // OK
+	if (pmem_log_cnt <= 0) return 0;
+	
+	prot = pgprot_noncached(PAGE_KERNEL);
+	pages = kmalloc(sizeof(struct page *) * PMEM_LOG_PAGES, GFP_KERNEL);
+	if (!pages) return 0;
+	for (x = 0; x < PMEM_LOG_PAGES; x++) {
+		addr = base + x * PAGE_SIZE;
+		pages[x] = pfn_to_page(addr >> PAGE_SHIFT);
+	} 
+	pmem_virt = vmap(pages, PMEM_LOG_PAGES, VM_MAP, prot);
+	kfree(pages);
+	if (!pmem_virt) return 0;
+
+	hdr = (struct pmem_header_t *)pmem_virt;
+	if (hdr->magic != PMEM_MAGIC) {
+		hdr->magic = PMEM_MAGIC;
+		hdr->cur_zone = 0;
+		hdr->zone_cnt[0] = 1;
+		hdr->zone_cnt[1] = 0;
+	} else {
+	  cur_zone = hdr->cur_zone & 1;
+		cur_zone = (cur_zone ? 0 : 1);
+		hdr->cur_zone = cur_zone;
+		hdr->zone_cnt[cur_zone]++;
+	}
+	pmem_log_p = (void *)((uint32_t)pmem_virt + sizeof(struct pmem_header_t));
+	if (cur_zone) 
+		pmem_log_p = (void *)((uint32_t)pmem_log_p + PMEM_ZONE_SIZE);
+	
+	for (x = 0; x < PMEM_ZONE_SIZE - 8; x += 4) {
+		__raw_writel_no_log(0, (uint32_t)pmem_log_p + x);
+	}
+	
+	return 1;
+}
+
+int pmem_log_start(int act_log_cnt)
+{
+	uint32_t x;
+	if (!pmem_log_p) return 0;
+	if (act_log_cnt < pmem_log_cnt) return 0;
+	pmem_log_beg = 1;
+	if (logged_chars < PMEM_ZONE_SIZE - 100) {
+		for (x = 0; x < logged_chars; x++) {
+			__raw_writeb_no_log(log_buf[x], (uint32_t)pmem_log_p + x);
+		}
+		__raw_writeb_no_log('\n', (uint32_t)pmem_log_p + logged_chars);
+		pmem_log_size = logged_chars + 1;
+	}
+	return 1;
+}
+
+static inline void emit_log_char_pmem(char c)
+{
+	if (!pmem_log_beg) return;
+	if (!pmem_log_p) return;
+	if (pmem_log_size >= PMEM_ZONE_SIZE-16) 
+		pmem_log_size = 0;
+	__raw_writeb_no_log(c, (uint32_t)pmem_log_p + pmem_log_size);
+	pmem_log_size++;
+}
+
+

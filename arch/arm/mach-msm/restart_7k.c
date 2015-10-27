@@ -49,6 +49,7 @@ static uint32_t restart_reason = RESTART_REASON_REBOOT;
 
 void msm_pm_power_off(void)
 {
+	pmem_log_start(9);
 	msm_proc_comm(PCOM_POWER_DOWN, 0, 0);
 	for (;;)
 		;
@@ -56,6 +57,8 @@ void msm_pm_power_off(void)
 
 void msm_pm_restart(char str, const char *cmd)
 {
+	pmem_log_start(9);
+	
 	if ((str >= '0') && (str <= '9'))
 		restart_reason = RESTART_REASON_BOOT_BASE | (str - '0');
 
