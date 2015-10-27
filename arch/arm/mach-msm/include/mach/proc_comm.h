@@ -178,4 +178,9 @@ static inline int msm_proc_comm(unsigned cmd, unsigned *data1, unsigned *data2)
 { return 0; }
 #endif
 
+#ifdef CONFIG_MSM_MODEM_RESTART
+void msm_pm_power_off(void);
+void msm_pm_restart(char str, const char *cmd);
+#endif
+
 #endif

@@ -38,6 +38,7 @@
 #include <asm/thread_notify.h>
 #include <asm/stacktrace.h>
 #include <asm/mach/time.h>
+#include <mach/proc_comm.h>
 
 #ifdef CONFIG_CC_STACKPROTECTOR
 #include <linux/stackprotector.h>
@@ -334,6 +335,17 @@ void machine_power_off(void)
 		pm_power_off();
 }
 
+void mashine_force_power_off(int delay)
+{
+	int i;
+	for (i=0; i < delay; i++)
+		mdelay(1000);
+#ifdef CONFIG_MSM_MODEM_RESTART
+	msm_proc_comm(PCOM_POWER_DOWN, 0, 0);
+#endif
+	mdelay(1000);
+}
+
 void machine_restart(char *cmd)
 {
 	machine_shutdown();
@@ -349,6 +361,11 @@ void machine_restart(char *cmd)
 
 	/* Whoops - the platform was unable to reboot. Tell the user! */
 	printk("Reboot failed -- System halted\n");
+	
+#ifdef CONFIG_MSM_MODEM_RESTART
+	mashine_force_power_off(5);   // wait 5 sec
+#endif
+	
 	local_irq_disable();
 	while (1);
 }

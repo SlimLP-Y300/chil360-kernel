@@ -81,6 +81,12 @@
 #include <asm/smp.h>
 #endif
 
+#ifdef CONFIG_MSM_MODEM_RESTART
+#include <linux/reboot.h>
+#include <linux/pm.h>
+#include <mach/proc_comm.h>
+#endif
+
 static int kernel_init(void *);
 
 extern void init_IRQ(void);
@@ -514,6 +520,11 @@ asmlinkage void __init start_kernel(void)
 		   -1, -1, &unknown_bootoption);
 
 	jump_label_init();
+
+#ifdef CONFIG_MSM_MODEM_RESTART
+	arm_pm_restart = msm_pm_restart;
+	pm_power_off = msm_pm_power_off;
+#endif
 
 	/*
 	 * These use large bootmem allocations and must precede
