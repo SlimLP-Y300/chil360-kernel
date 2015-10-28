@@ -17,7 +17,4 @@
 int mipi_novatek_nt35516_qhd_device_register(struct msm_panel_info *pinfo,
 					u32 channel, u32 panel);
 
-int mipi_novatek_sharp_qhd_device_register(struct msm_panel_info *pinfo,
-					u32 channel, u32 panel);
-
 #endif  /* MIPI_NT35516_H */
