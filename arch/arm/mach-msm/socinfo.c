@@ -21,6 +21,7 @@
 #include <mach/socinfo.h>
 
 #include "smd_private.h"
+#include <mach/proc_comm.h>
 
 #define BUILD_ID_LENGTH 32
 
@@ -35,6 +36,13 @@ enum {
 	HW_PLATFORM_LIQUID  = 9,
 	/* Dragonboard platform id is assigned as 10 in CDT */
 	HW_PLATFORM_DRAGON	= 10,
+	HW_PLATFORM_8X25_EVB = 0xC,
+	HW_PLATFORM_SKU7  = 0xF,
+	HW_PLATFORM_ALASKA  = 0xA0,
+	HW_PLATFORM_8X25_QRD5 = 0xA2,
+	HW_PLATFORM_7X27_QRD5A = 0xA3,
+	HW_PLATFORM_8X25Q_SKUD = 0xA7,
+	HW_PLATFORM_8X25Q_SKUE = 0xA8,
 	HW_PLATFORM_INVALID
 };
 
@@ -47,9 +55,27 @@ const char *hw_platform[] = {
 	[HW_PLATFORM_SVLTE_SURF] = "SLVTE_SURF",
 	[HW_PLATFORM_MTP] = "MTP",
 	[HW_PLATFORM_LIQUID] = "Liquid",
-	[HW_PLATFORM_DRAGON] = "Dragon"
+	[HW_PLATFORM_DRAGON] = "Dragon",
+	[HW_PLATFORM_8X25_EVB] = "msm8x25_evb",
+	[HW_PLATFORM_SKU7] = "msm7627a_sku7",
+	[HW_PLATFORM_ALASKA] = "msm7627a_skua",
+	[HW_PLATFORM_8X25_QRD5] = "msm8x25_sku5",
+	[HW_PLATFORM_7X27_QRD5A] = "msm7x27_sku5a",
+	[HW_PLATFORM_8X25Q_SKUD] = "msm8x25q_skud",
+	[HW_PLATFORM_8X25Q_SKUE] = "msm8x25q_skue"
 };
 
+enum {
+	MULTI_NO_DSDS = 0,
+	MULTI = 1,
+	UMTS = 2
+};
+
+const char *modem_type[] = {
+	[MULTI_NO_DSDS] = "MULTI_NO_DSDS",
+	[MULTI] = "MULTI",
+	[UMTS] = "UMTS"
+};
 enum {
 	ACCESSORY_CHIP_UNKNOWN = 0,
 	ACCESSORY_CHIP_CHARM = 58,
@@ -256,6 +282,7 @@ static enum msm_cpu cpu_of_id[] = {
 	[128] = MSM_CPU_8625,
 	[129] = MSM_CPU_8625,
 	[137] = MSM_CPU_8625,
+	[167] = MSM_CPU_8625,
 
 	/* 8064 MPQ ID */
 	[130] = MSM_CPU_8064,
@@ -403,6 +430,26 @@ socinfo_show_version(struct sys_device *dev,
 	return snprintf(buf, PAGE_SIZE, "%u.%u\n",
 			SOCINFO_VERSION_MAJOR(version),
 			SOCINFO_VERSION_MINOR(version));
+}
+
+static ssize_t
+socinfo_show_modem_type(struct sys_device *dev,
+		      struct sysdev_attribute *attr,
+		      char *buf)
+{
+	uint32_t version;
+	int ret;
+
+	if (!socinfo) {
+		pr_err("%s: No socinfo found!\n", __func__);
+		return 0;
+	}
+
+	ret = msm_proc_comm(PCOM_GET_MODEM_VERSION, &version, NULL);
+	if ((ret >= 0) && (version <= UMTS))
+		return snprintf(buf, PAGE_SIZE, "%s\n", modem_type[version]);
+	else
+		return 0;
 }
 
 static ssize_t
@@ -580,6 +627,7 @@ static struct sysdev_attribute socinfo_v1_files[] = {
 	_SYSDEV_ATTR(id, 0444, socinfo_show_id, NULL),
 	_SYSDEV_ATTR(version, 0444, socinfo_show_version, NULL),
 	_SYSDEV_ATTR(build_id, 0444, socinfo_show_build_id, NULL),
+	_SYSDEV_ATTR(modem_type, 0444, socinfo_show_modem_type, NULL),
 };
 
 static struct sysdev_attribute socinfo_v2_files[] = {

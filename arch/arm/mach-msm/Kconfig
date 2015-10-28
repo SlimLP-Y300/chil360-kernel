@@ -653,6 +653,14 @@ config MACH_MSM8625_EVB
 	help
 	  Support for the Qualcomm MSM8625 Reference Design.
 
+config MACH_MSM7X27A_QRD5A
+	depends on ARCH_MSM7X27A
+	depends on !MSM_STACKED_MEMORY
+	default y
+	bool "QRD MSM7x27a SKU5A"
+	help
+	  Support for the Qualcomm MSM7X27A QRD5A Reference Design.
+
 config MACH_MSM8625_QRD7
 	depends on ARCH_MSM8625
 	depends on !MSM_STACKED_MEMORY
@@ -668,6 +676,30 @@ config MACH_MSM8625_EVT
 	bool "MSM8625 EVT"
 	help
 	  Support for the Qualcomm MSM8625 Reference Design.
+
+config MACH_MSM8625_QRD5
+	depends on ARCH_MSM8625
+	depends on !MSM_STACKED_MEMORY
+	default y
+	bool "MSM8625 QRD5"
+	help
+	  Support for the Qualcomm MSM8625 SKU5 Reference Design.
+
+config MACH_MSM8625Q_SKUD
+	depends on ARCH_MSM8625
+	depends on !MSM_STACKED_MEMORY
+	default y
+	bool "MSM8625Q SKUD"
+	help
+	  Support for the Qualcomm MSM8625Q SKUD Reference Design.
+
+config MACH_MSM8625Q_SKUE
+	depends on ARCH_MSM8625
+	depends on !MSM_STACKED_MEMORY
+	default y
+	bool "MSM8625Q SKUE"
+	help
+	  Support for the Qualcomm MSM8625Q SKUE Reference Design.
 
 config MACH_MSM7X30_SURF
        depends on ARCH_MSM7X30
