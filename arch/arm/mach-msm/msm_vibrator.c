@@ -60,7 +60,8 @@ static int time_value = 0;
 #ifdef CONFIG_HUAWEI_VIBRATOR_INTENSITY_SYSFS
 static int volt_value = 2700;
 #endif
-#ifndef CONFIG_PM8XXX_RPC_VIBRATOR
+
+#ifdef CONFIG_PM8XXX_RPC_VIBRATOR
 static void set_pmic_vibrator(int on)
 {
 	int rc;
