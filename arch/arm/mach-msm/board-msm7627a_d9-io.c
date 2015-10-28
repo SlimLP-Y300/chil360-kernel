@@ -36,9 +36,6 @@
 #define ATMEL_X_OFFSET 13
 #define ATMEL_Y_OFFSET 0
 
-#if defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C) || \
-defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C_MODULE)
-
 #ifndef CLEARPAD3000_ATTEN_GPIO
 #define CLEARPAD3000_ATTEN_GPIO (48)
 #endif
@@ -46,7 +43,6 @@ defined(CONFIG_TOUCHSCREEN_SYNAPTICS_RMI4_I2C_MODULE)
 #ifndef CLEARPAD3000_RESET_GPIO
 #define CLEARPAD3000_RESET_GPIO (26)
 #endif
-#endif  //linxc 2012-06-25 +++
 
 
 #define KP_INDEX(row, col) ((row)*ARRAY_SIZE(kp_col_gpios) + (col))
@@ -660,7 +656,7 @@ static int synaptics_touchpad_setup(void)
 		    sizeof(clearpad3000_cfg_data)/sizeof(struct msm_gpio));
 	if (retval) {
 		pr_err("%s:Failed to obtain touchpad GPIO %d. Code: %d.",
-				__func__, CLEARPAD3000_ATTEN_GPIO, retval);
+				__func__, (int)CLEARPAD3000_ATTEN_GPIO, retval);
 		retval = 0; /* ignore the err */
 	}
 	synaptics_platformdata.irq = gpio_to_irq(CLEARPAD3000_ATTEN_GPIO);

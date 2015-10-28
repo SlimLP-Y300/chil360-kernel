@@ -32,7 +32,9 @@
 #include <linux/input/ft5x06_ts.h>
 #include <linux/msm_adc.h>
 #include <linux/regulator/msm-gpio-regulator.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
+#include <linux/dma-mapping.h>
+#include <linux/dma-contiguous.h>
 #include <asm/mach/mmc.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -64,7 +66,8 @@
 #include "board-msm7627a_d9-sensor.h"
 
 #define RESERVE_KERNEL_EBI1_SIZE	0x3A000
-#define MSM_RESERVE_AUDIO_SIZE	0x1F4000
+#define MSM_RESERVE_AUDIO_SIZE	0xF0000
+#define BOOTLOADER_BASE_ADDR    0x10000
 #define BAHAMA_SLAVE_ID_FM_REG 0x02
 #define FM_GPIO	83
 #define BT_PCM_BCLK_MODE  0x88
@@ -174,13 +177,20 @@ static struct msm_i2c_platform_data msm_gsbi1_qup_i2c_pdata = {
 #define CAMERA_ZSL_SIZE		(SZ_1M * 60)
 
 #ifdef CONFIG_ION_MSM
-#define MSM_ION_HEAP_NUM	4
+#define MSM_ION_HEAP_NUM	5
 static struct platform_device ion_dev;
 static int msm_ion_camera_size;
 static int msm_ion_audio_size;
 static int msm_ion_sf_size;
 static int msm_ion_camera_size_carving;
 #endif
+#endif
+
+#define CAMERA_HEAP_BASE        0x0
+#ifdef CONFIG_CMA
+#define CAMERA_HEAP_TYPE	ION_HEAP_TYPE_DMA
+#else
+#define CAMERA_HEAP_TYPE	ION_HEAP_TYPE_CARVEOUT
 #endif
 
 static struct android_usb_platform_data android_usb_pdata = {
@@ -366,7 +376,8 @@ static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
 };
 
 /* 8625 PM platform data */
-static struct msm_pm_platform_data msm8625_pm_data[MSM_PM_SLEEP_MODE_NR * 2] = {
+static struct msm_pm_platform_data
+		msm8625_pm_data[MSM_PM_SLEEP_MODE_NR * CONFIG_NR_CPUS] = {
 	/* CORE0 entries */
 	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_POWER_COLLAPSE)] = {
 					.idle_supported = 1,
@@ -454,7 +465,8 @@ static u32 msm_calculate_batt_capacity(u32 current_voltage);
 static struct msm_psy_batt_pdata msm_psy_batt_data = {
 	.voltage_min_design     = 2800,
 	.voltage_max_design     = 4300,
-	.avail_chg_sources      = AC_CHG | USB_CHG | UNKNOWN_CHG,
+	.voltage_fail_safe      = 3000,
+	.avail_chg_sources      = AC_CHG | USB_CHG,
 	.batt_technology        = POWER_SUPPLY_TECHNOLOGY_LION,
 	.calculate_capacity     = &msm_calculate_batt_capacity,
 };
@@ -472,11 +484,6 @@ static u32 msm_calculate_batt_capacity(u32 current_voltage)
 		return (current_voltage - low_voltage) * 100
 			/ (high_voltage - low_voltage);
 }
-
-static struct platform_device msm_fastboot_device = {
-	.name               = "fastboot",
-	.id                 = -1,
-};
 
 static struct platform_device msm_batt_device = {
 	.name               = "msm-battery",
@@ -604,7 +611,6 @@ static struct platform_device *common_devices[] __initdata = {
 #ifdef CONFIG_ION_MSM
 	&ion_dev,
 #endif
-	&msm_fastboot_device,
 };
 
 
@@ -690,16 +696,29 @@ static struct ion_co_heap_pdata co_ion_pdata = {
 	.adjacent_mem_id = INVALID_HEAP_ID,
 	.align = PAGE_SIZE,
 };
+
+static struct ion_co_heap_pdata co_mm_ion_pdata = {
+	.adjacent_mem_id = INVALID_HEAP_ID,
+	.align = PAGE_SIZE,
+};
+
+static u64 msm_dmamask = DMA_BIT_MASK(32);
+
+static struct platform_device ion_cma_device = {
+	.name = "ion-cma-device",
+	.id = -1,
+	.dev = {
+		.dma_mask = &msm_dmamask,
+		.coherent_dma_mask = DMA_BIT_MASK(32),
+	}
+};
 #endif
 
 /**
  * These heaps are listed in the order they will be allocated.
  * Don't swap the order unless you know what you are doing!
  */
-static struct ion_platform_data ion_pdata = {
-	.nr = MSM_ION_HEAP_NUM,
-	.has_outer_cache = 1,
-	.heaps = {
+struct ion_platform_heap qrd7627a_heaps[] = {
 		{
 			.id	= ION_SYSTEM_HEAP_ID,
 			.type	= ION_HEAP_TYPE_SYSTEM,
@@ -709,12 +728,13 @@ static struct ion_platform_data ion_pdata = {
 		/* ION_ADSP = CAMERA */
 		{
 			.id	= ION_CAMERA_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.type	= CAMERA_HEAP_TYPE,
 			.name	= ION_CAMERA_HEAP_NAME,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *)&co_ion_pdata,
+			.extra_data = (void *)&co_mm_ion_pdata,
+			.priv	= (void *)&ion_cma_device.dev,
 		},
-		/* ION_AUDIO */
+		/* AUDIO HEAP 1*/
 		{
 			.id	= ION_AUDIO_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CARVEOUT,
@@ -730,8 +750,23 @@ static struct ion_platform_data ion_pdata = {
 			.memory_type = ION_EBI_TYPE,
 			.extra_data = (void *)&co_ion_pdata,
 		},
+		/* AUDIO HEAP 2*/
+		{
+			.id    = ION_AUDIO_HEAP_BL_ID,
+			.type  = ION_HEAP_TYPE_CARVEOUT,
+			.name  = ION_AUDIO_BL_HEAP_NAME,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = (void *)&co_ion_pdata,
+			.base = BOOTLOADER_BASE_ADDR,
+		},
+
 #endif
-	}
+};
+
+static struct ion_platform_data ion_pdata = {
+	.nr = MSM_ION_HEAP_NUM,
+	.has_outer_cache = 1,
+	.heaps = qrd7627a_heaps,
 };
 
 static struct platform_device ion_dev = {
@@ -766,8 +801,7 @@ static void __init reserve_ion_memory(void)
 {
 #if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
 	msm7627a_reserve_table[MEMTYPE_EBI1].size += RESERVE_KERNEL_EBI1_SIZE;
-	msm7627a_reserve_table[MEMTYPE_EBI1].size +=
-		msm_ion_camera_size_carving;
+	msm7627a_reserve_table[MEMTYPE_EBI1].size += msm_ion_camera_size_carving;
 	msm7627a_reserve_table[MEMTYPE_EBI1].size += msm_ion_sf_size;
 #endif
 }
@@ -792,14 +826,23 @@ static struct reserve_info msm7627a_reserve_info __initdata = {
 
 static void __init msm7627a_reserve(void)
 {
-	reserve_info = &msm7627a_reserve_info;
-	msm_reserve();
+	reserve_info = &msm7627a_reserve_info;    
 	memblock_remove(MSM8625_WARM_BOOT_PHYS, SZ_32);
+	memblock_remove(BOOTLOADER_BASE_ADDR, msm_ion_audio_size);
+	msm_reserve();
+#ifdef CONFIG_CMA
+	dma_declare_contiguous(
+			&ion_cma_device.dev,
+			msm_ion_camera_size,
+			CAMERA_HEAP_BASE,
+			0x26000000);
+#endif
 }
 
 static void __init msm8625_reserve(void)
 {
-	memblock_remove(MSM8625_SECONDARY_PHYS, SZ_8);
+	memblock_remove(MSM8625_CPU_PHYS, SZ_8);
+	memblock_remove(MSM8625_NON_CACHE_MEM, SZ_2K);
 	msm7627a_reserve();
 }
 

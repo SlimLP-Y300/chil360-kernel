@@ -67,7 +67,7 @@ enum {
 };
 
 #define ADSP_RPC_PROG           0x3000000a
-#if (defined(CONFIG_HUAWEI_BT_WCN2243) || (!defined(CONFIG_HUAWEI_KERNEL)))
+#if defined(CONFIG_BT) && defined(CONFIG_MARIMBA_CORE)
 
 #define FPGA_MSM_CNTRL_REG2 0x90008010
 #define BAHAMA_SLAVE_ID_FM_REG 0x02
