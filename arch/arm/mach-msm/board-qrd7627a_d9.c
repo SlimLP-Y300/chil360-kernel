@@ -676,7 +676,7 @@ static void fix_sizes(void)
 		reserve_adsp_size = CAMERA_ZSL_SIZE;
 
 #ifdef CONFIG_ION_MSM
-	msm_ion_audio_size = MSM_RESERVE_AUDIO_SIZE;
+	msm_ion_audio_size = reserve_audio_size;
 	msm_ion_sf_size = reserve_mdp_size;
 #ifdef CONFIG_CMA
 	if (get_ddr_size() > SZ_256M)
@@ -808,7 +808,6 @@ static void __init reserve_ion_memory(void)
 
 static void __init msm7627a_calculate_reserve_sizes(void)
 {
-	fix_sizes();
 	size_ion_devices();
 	reserve_ion_memory();
 }
@@ -826,6 +825,7 @@ static struct reserve_info msm7627a_reserve_info __initdata = {
 
 static void __init msm7627a_reserve(void)
 {
+	fix_sizes();   // calculate sizes before call msm_reserve()
 	reserve_info = &msm7627a_reserve_info;    
 	memblock_remove(MSM8625_WARM_BOOT_PHYS, SZ_32);
 	memblock_remove(BOOTLOADER_BASE_ADDR, msm_ion_audio_size);
@@ -841,6 +841,8 @@ static void __init msm7627a_reserve(void)
 
 static void __init msm8625_reserve(void)
 {
+	unsigned long sz = get_ddr_size();
+	pr_info("%s: DDR size = 0x%lx (%ld MB)\n", __func__, sz, sz/0x100000);
 	memblock_remove(MSM8625_CPU_PHYS, SZ_8);
 	memblock_remove(MSM8625_NON_CACHE_MEM, SZ_2K);
 	msm7627a_reserve();
