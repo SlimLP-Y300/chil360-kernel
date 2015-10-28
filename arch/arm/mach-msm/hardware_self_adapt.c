@@ -837,7 +837,7 @@ uint get_vibrator_voltage(void)
     }
     else
     {
-        return 2700;
+        return 3000;
     }
 }
 
@@ -1828,7 +1828,7 @@ hw_camera_type get_hw_camera_mirror_type(void)
 char *get_touch_info(void)
 {
 	char *touch_info = NULL;
-
+#ifdef CONFIG_HUAWEI_KERNEL
 	touch_info = get_synaptics_touch_info();
 	if (touch_info != NULL)
 		return touch_info;
@@ -1836,7 +1836,7 @@ char *get_touch_info(void)
 	touch_info = get_melfas_touch_info();
 	if (touch_info != NULL)
 		return touch_info;
-
+#endif
 	return NULL;
 }
 /*4pin battery voltage id*/
@@ -1844,6 +1844,7 @@ char* get_battery_manufacturer_info()
 {
 	hw_battery_id_mv batt_id;
 	char *pmanufacturer_name = "Unknown battery";
+#ifdef CONFIG_HUAWEI_KERNEL
 	batt_id = get_battery_resistance_id();
 	switch (batt_id)
 	{
@@ -1865,6 +1866,7 @@ char* get_battery_manufacturer_info()
 	default:
 		break;
 	}
+#endif
 	return pmanufacturer_name;
 }
 hw_camera_flash_number get_hw_camera_flash_number(void)
