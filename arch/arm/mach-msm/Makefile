@@ -1,4 +1,6 @@
 CFLAGS_scm.o :=$(call as-instr,.arch_extension sec,-DREQUIRES_SEC=1)
+ccflags-y += -Wno-uninitialized
+ccflags-y += -Wno-unused-variable
 
 obj-y += io.o dma.o memory.o hardware_self_adapt.o
 ifndef CONFIG_ARM_ARCH_TIMER
