@@ -204,8 +204,8 @@ static char * const zone_names[MAX_NR_ZONES] = {
  * allocations below this point, only high priority ones. Automatically
  * tuned according to the amount of memory in the system.
  */
-int min_free_kbytes = 2048;
-int min_free_order_shift = 2;
+int min_free_kbytes = 1024;
+int min_free_order_shift = 1;
 
 /*
  * Extra memory for the system to try freeing. Used to temporarily
