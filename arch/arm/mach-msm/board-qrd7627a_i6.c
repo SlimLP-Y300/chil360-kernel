@@ -20,7 +20,6 @@
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 #include <linux/i2c.h>
-#include <linux/android_pmem.h>
 #include <linux/bootmem.h>
 #include <linux/mfd/marimba.h>
 #include <linux/power_supply.h>
@@ -32,9 +31,10 @@
 #include <linux/memblock.h>
 #include <linux/input/ft5x06_ts.h>
 #include <linux/msm_adc.h>
-#include <linux/fmem.h>
 #include <linux/regulator/msm-gpio-regulator.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
+#include <linux/dma-mapping.h>
+#include <linux/dma-contiguous.h>
 #include <asm/mach/mmc.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -65,8 +65,9 @@
 #include "board-msm7627a.h"
 #include "board-msm7627a_i6-sensor.h"
 
-#define PMEM_KERNEL_EBI1_SIZE	0x3A000
-#define MSM_PMEM_AUDIO_SIZE	0x1F4000
+#define RESERVE_KERNEL_EBI1_SIZE	0x3A000
+#define MSM_RESERVE_AUDIO_SIZE	0xF0000
+#define BOOTLOADER_BASE_ADDR    0x10000
 #define BAHAMA_SLAVE_ID_FM_REG 0x02
 #define FM_GPIO	83
 #define BT_PCM_BCLK_MODE  0x88
@@ -171,17 +172,25 @@ static struct msm_i2c_platform_data msm_gsbi1_qup_i2c_pdata = {
 #endif
 
 #ifdef CONFIG_ARCH_MSM7X27A
-#define MSM_PMEM_MDP_SIZE       0x2D00000		//0x2300000  --> 0x2D00000  45M for QHD Panel   linxc 2012-09-04 modified
-#define MSM_PMEM_ADSP_SIZE      0x1200000
+#define MSM_RESERVE_MDP_SIZE       0x2D00000		//0x2300000  --> 0x2D00000  45M for QHD Panel   linxc 2012-09-04 modified
+#define MSM_RESERVE_ADSP_SIZE      0x1200000
 #define CAMERA_ZSL_SIZE		(SZ_1M * 60)
 
 #ifdef CONFIG_ION_MSM
-#define MSM_ION_HEAP_NUM	4
+#define MSM_ION_HEAP_NUM	5
 static struct platform_device ion_dev;
 static int msm_ion_camera_size;
 static int msm_ion_audio_size;
 static int msm_ion_sf_size;
+static int msm_ion_camera_size_carving;
 #endif
+#endif
+
+#define CAMERA_HEAP_BASE        0x0
+#ifdef CONFIG_CMA
+#define CAMERA_HEAP_TYPE	ION_HEAP_TYPE_DMA
+#else
+#define CAMERA_HEAP_TYPE	ION_HEAP_TYPE_CARVEOUT
 #endif
 
 static struct android_usb_platform_data android_usb_pdata = {
@@ -367,7 +376,8 @@ static struct msm_pm_boot_platform_data msm_pm_boot_pdata __initdata = {
 };
 
 /* 8625 PM platform data */
-static struct msm_pm_platform_data msm8625_pm_data[MSM_PM_SLEEP_MODE_NR * 2] = {
+static struct msm_pm_platform_data
+		msm8625_pm_data[MSM_PM_SLEEP_MODE_NR * CONFIG_NR_CPUS] = {
 	/* CORE0 entries */
 	[MSM_PM_MODE(0, MSM_PM_SLEEP_MODE_POWER_COLLAPSE)] = {
 					.idle_supported = 1,
@@ -432,71 +442,31 @@ static struct msm_pm_boot_platform_data msm_pm_8625_boot_pdata __initdata = {
 	.v_addr = MSM_CFG_CTL_BASE,
 };
 
-static struct android_pmem_platform_data android_pmem_adsp_pdata = {
-	.name = "pmem_adsp",
-	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
-	.cached = 1,
-	.memory_type = MEMTYPE_EBI1,
-	.request_region = request_fmem_c_region,
-	.release_region = release_fmem_c_region,
-	.reusable = 1,
-};
-
-static struct platform_device android_pmem_adsp_device = {
-	.name = "android_pmem",
-	.id = 1,
-	.dev = { .platform_data = &android_pmem_adsp_pdata },
-};
-
-static unsigned pmem_mdp_size = MSM_PMEM_MDP_SIZE;
-static int __init pmem_mdp_size_setup(char *p)
+static unsigned reserve_mdp_size = MSM_RESERVE_MDP_SIZE;
+static int __init reserve_mdp_size_setup(char *p)
 {
-	pmem_mdp_size = memparse(p, NULL);
+	reserve_mdp_size = memparse(p, NULL);
 	return 0;
 }
 
-early_param("pmem_mdp_size", pmem_mdp_size_setup);
+early_param("reserve_mdp_size", reserve_mdp_size_setup);
 
-static unsigned pmem_adsp_size = MSM_PMEM_ADSP_SIZE;
-static int __init pmem_adsp_size_setup(char *p)
+static unsigned reserve_adsp_size = MSM_RESERVE_ADSP_SIZE;
+static int __init reserve_adsp_size_setup(char *p)
 {
-	pmem_adsp_size = memparse(p, NULL);
+	reserve_adsp_size = memparse(p, NULL);
 	return 0;
 }
 
-early_param("pmem_adsp_size", pmem_adsp_size_setup);
-
-static struct android_pmem_platform_data android_pmem_audio_pdata = {
-	.name = "pmem_audio",
-	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
-	.cached = 0,
-	.memory_type = MEMTYPE_EBI1,
-};
-
-static struct platform_device android_pmem_audio_device = {
-	.name = "android_pmem",
-	.id = 2,
-	.dev = { .platform_data = &android_pmem_audio_pdata },
-};
-
-static struct android_pmem_platform_data android_pmem_pdata = {
-	.name = "pmem",
-	.allocator_type = PMEM_ALLOCATORTYPE_BITMAP,
-	.cached = 1,
-	.memory_type = MEMTYPE_EBI1,
-};
-static struct platform_device android_pmem_device = {
-	.name = "android_pmem",
-	.id = 0,
-	.dev = { .platform_data = &android_pmem_pdata },
-};
+early_param("reserve_adsp_size", reserve_adsp_size_setup);
 
 static u32 msm_calculate_batt_capacity(u32 current_voltage);
 
 static struct msm_psy_batt_pdata msm_psy_batt_data = {
 	.voltage_min_design     = 2800,
 	.voltage_max_design     = 4300,
-	.avail_chg_sources      = AC_CHG | USB_CHG | UNKNOWN_CHG,
+	.voltage_fail_safe      = 3000,
+	.avail_chg_sources      = AC_CHG | USB_CHG,
 	.batt_technology        = POWER_SUPPLY_TECHNOLOGY_LION,
 	.calculate_capacity     = &msm_calculate_batt_capacity,
 };
@@ -514,11 +484,6 @@ static u32 msm_calculate_batt_capacity(u32 current_voltage)
 		return (current_voltage - low_voltage) * 100
 			/ (high_voltage - low_voltage);
 }
-
-static struct platform_device msm_fastboot_device = {
-	.name               = "fastboot",
-	.id                 = -1,
-};
 
 static struct platform_device msm_batt_device = {
 	.name               = "msm-battery",
@@ -542,14 +507,6 @@ static struct platform_device msm_adc_device = {
 	.dev = {
 		.platform_data = &msm_adc_pdata,
 	},
-};
-
-static struct fmem_platform_data fmem_pdata;
-
-static struct platform_device fmem_device = {
-	.name = "fmem",
-	.id = 1,
-	.dev = { .platform_data = &fmem_pdata },
 };
 
 #define GPIO_VREG_INIT(_id, _reg_name, _gpio_label, _gpio, _active_low) \
@@ -643,9 +600,6 @@ static struct platform_device qrd_vreg_gpio_ext_3p3v __devinitdata = {
 
 static struct platform_device *common_devices[] __initdata = {
 	&android_usb_device,
-	&android_pmem_device,
-	&android_pmem_adsp_device,
-	&android_pmem_audio_device,
 	&msm_batt_device,
 	&msm_device_adspdec,
 	&msm_device_snd,
@@ -654,11 +608,9 @@ static struct platform_device *common_devices[] __initdata = {
 	&asoc_msm_dai0,
 	&asoc_msm_dai1,
 	&msm_adc_device,
-	&fmem_device,
 #ifdef CONFIG_ION_MSM
 	&ion_dev,
 #endif
-	&msm_fastboot_device,
 };
 
 
@@ -702,30 +654,39 @@ static struct platform_device *msm8625_evb_devices[] __initdata = {
 	&qrd_vreg_gpio_ext_3p3v,	//linxc add +++ 2012-12-20
 };
 
-static unsigned pmem_kernel_ebi1_size = PMEM_KERNEL_EBI1_SIZE;
-static int __init pmem_kernel_ebi1_size_setup(char *p)
+static unsigned reserve_kernel_ebi1_size = RESERVE_KERNEL_EBI1_SIZE;
+static int __init reserve_kernel_ebi1_size_setup(char *p)
 {
-	pmem_kernel_ebi1_size = memparse(p, NULL);
+	reserve_kernel_ebi1_size = memparse(p, NULL);
 	return 0;
 }
-early_param("pmem_kernel_ebi1_size", pmem_kernel_ebi1_size_setup);
+early_param("reserve_kernel_ebi1_size", reserve_kernel_ebi1_size_setup);
 
-static unsigned pmem_audio_size = MSM_PMEM_AUDIO_SIZE;
-static int __init pmem_audio_size_setup(char *p)
+static unsigned reserve_audio_size = MSM_RESERVE_AUDIO_SIZE;
+static int __init reserve_audio_size_setup(char *p)
 {
-	pmem_audio_size = memparse(p, NULL);
+	reserve_audio_size = memparse(p, NULL);
 	return 0;
 }
-early_param("pmem_audio_size", pmem_audio_size_setup);
+early_param("reserve_audio_size", reserve_audio_size_setup);
 
 static void fix_sizes(void)
 {
 	if (get_ddr_size() > SZ_512M)
-		pmem_adsp_size = CAMERA_ZSL_SIZE;
+		reserve_adsp_size = CAMERA_ZSL_SIZE;
+
 #ifdef CONFIG_ION_MSM
-	msm_ion_camera_size = pmem_adsp_size;
-	msm_ion_audio_size = (MSM_PMEM_AUDIO_SIZE + PMEM_KERNEL_EBI1_SIZE);
-	msm_ion_sf_size = pmem_mdp_size;
+	msm_ion_audio_size = reserve_audio_size;
+	msm_ion_sf_size = reserve_mdp_size;
+#ifdef CONFIG_CMA
+	if (get_ddr_size() > SZ_256M)
+		reserve_adsp_size = CAMERA_ZSL_SIZE;
+	msm_ion_camera_size = reserve_adsp_size;
+	msm_ion_camera_size_carving = 0;
+#else
+	msm_ion_camera_size = reserve_adsp_size;
+	msm_ion_camera_size_carving = msm_ion_camera_size;
+#endif
 #endif
 }
 
@@ -735,31 +696,45 @@ static struct ion_co_heap_pdata co_ion_pdata = {
 	.adjacent_mem_id = INVALID_HEAP_ID,
 	.align = PAGE_SIZE,
 };
+
+static struct ion_co_heap_pdata co_mm_ion_pdata = {
+	.adjacent_mem_id = INVALID_HEAP_ID,
+	.align = PAGE_SIZE,
+};
+
+static u64 msm_dmamask = DMA_BIT_MASK(32);
+
+static struct platform_device ion_cma_device = {
+	.name = "ion-cma-device",
+	.id = -1,
+	.dev = {
+		.dma_mask = &msm_dmamask,
+		.coherent_dma_mask = DMA_BIT_MASK(32),
+	}
+};
 #endif
 
 /**
  * These heaps are listed in the order they will be allocated.
  * Don't swap the order unless you know what you are doing!
  */
-static struct ion_platform_data ion_pdata = {
-	.nr = MSM_ION_HEAP_NUM,
-	.has_outer_cache = 1,
-	.heaps = {
+struct ion_platform_heap qrd7627a_heaps[] = {
 		{
 			.id	= ION_SYSTEM_HEAP_ID,
 			.type	= ION_HEAP_TYPE_SYSTEM,
 			.name	= ION_VMALLOC_HEAP_NAME,
 		},
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
-		/* PMEM_ADSP = CAMERA */
+		/* ION_ADSP = CAMERA */
 		{
 			.id	= ION_CAMERA_HEAP_ID,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.type	= CAMERA_HEAP_TYPE,
 			.name	= ION_CAMERA_HEAP_NAME,
 			.memory_type = ION_EBI_TYPE,
-			.extra_data = (void *)&co_ion_pdata,
+			.extra_data = (void *)&co_mm_ion_pdata,
+			.priv	= (void *)&ion_cma_device.dev,
 		},
-		/* PMEM_AUDIO */
+		/* AUDIO HEAP 1*/
 		{
 			.id	= ION_AUDIO_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CARVEOUT,
@@ -767,7 +742,7 @@ static struct ion_platform_data ion_pdata = {
 			.memory_type = ION_EBI_TYPE,
 			.extra_data = (void *)&co_ion_pdata,
 		},
-		/* PMEM_MDP = SF */
+		/* ION_MDP = SF */
 		{
 			.id	= ION_SF_HEAP_ID,
 			.type	= ION_HEAP_TYPE_CARVEOUT,
@@ -775,8 +750,23 @@ static struct ion_platform_data ion_pdata = {
 			.memory_type = ION_EBI_TYPE,
 			.extra_data = (void *)&co_ion_pdata,
 		},
+		/* AUDIO HEAP 2*/
+		{
+			.id    = ION_AUDIO_HEAP_BL_ID,
+			.type  = ION_HEAP_TYPE_CARVEOUT,
+			.name  = ION_AUDIO_BL_HEAP_NAME,
+			.memory_type = ION_EBI_TYPE,
+			.extra_data = (void *)&co_ion_pdata,
+			.base = BOOTLOADER_BASE_ADDR,
+		},
+
 #endif
-	}
+};
+
+static struct ion_platform_data ion_pdata = {
+	.nr = MSM_ION_HEAP_NUM,
+	.has_outer_cache = 1,
+	.heaps = qrd7627a_heaps,
 };
 
 static struct platform_device ion_dev = {
@@ -797,95 +787,27 @@ static struct memtype_reserve msm7627a_reserve_table[] __initdata = {
 	},
 };
 
-#ifdef CONFIG_ANDROID_PMEM
-#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-static struct android_pmem_platform_data *pmem_pdata_array[] __initdata = {
-		&android_pmem_adsp_pdata,
-		&android_pmem_audio_pdata,
-		&android_pmem_pdata,
-};
-#endif
-#endif
-
-static void __init size_pmem_devices(void)
-{
-#ifdef CONFIG_ANDROID_PMEM
-#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-	unsigned int i;
-	unsigned int reusable_count = 0;
-
-	android_pmem_adsp_pdata.size = pmem_adsp_size;
-	android_pmem_pdata.size = pmem_mdp_size;
-	android_pmem_audio_pdata.size = pmem_audio_size;
-
-	fmem_pdata.size = 0;
-	fmem_pdata.align = PAGE_SIZE;
-
-	/* Find pmem devices that should use FMEM (reusable) memory.
-	 */
-	for (i = 0; i < ARRAY_SIZE(pmem_pdata_array); ++i) {
-		struct android_pmem_platform_data *pdata = pmem_pdata_array[i];
-
-		if (!reusable_count && pdata->reusable)
-			fmem_pdata.size += pdata->size;
-
-		reusable_count += (pdata->reusable) ? 1 : 0;
-
-		if (pdata->reusable && reusable_count > 1) {
-			pr_err("%s: Too many PMEM devices specified as reusable. PMEM device %s was not configured as reusable.\n",
-				__func__, pdata->name);
-			pdata->reusable = 0;
-		}
-	}
-#endif
-#endif
-}
-
-#ifdef CONFIG_ANDROID_PMEM
-#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-static void __init reserve_memory_for(struct android_pmem_platform_data *p)
-{
-	msm7627a_reserve_table[p->memory_type].size += p->size;
-}
-#endif
-#endif
-
-static void __init reserve_pmem_memory(void)
-{
-#ifdef CONFIG_ANDROID_PMEM
-#ifndef CONFIG_MSM_MULTIMEDIA_USE_ION
-	unsigned int i;
-	for (i = 0; i < ARRAY_SIZE(pmem_pdata_array); ++i)
-		reserve_memory_for(pmem_pdata_array[i]);
-
-	msm7627a_reserve_table[MEMTYPE_EBI1].size += pmem_kernel_ebi1_size;
-#endif
-#endif
-}
-
 static void __init size_ion_devices(void)
 {
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
 	ion_pdata.heaps[1].size = msm_ion_camera_size;
-	ion_pdata.heaps[2].size = msm_ion_audio_size;
+	ion_pdata.heaps[2].size = RESERVE_KERNEL_EBI1_SIZE;
 	ion_pdata.heaps[3].size = msm_ion_sf_size;
+	ion_pdata.heaps[4].size = msm_ion_audio_size;
 #endif
 }
 
 static void __init reserve_ion_memory(void)
 {
 #if defined(CONFIG_ION_MSM) && defined(CONFIG_MSM_MULTIMEDIA_USE_ION)
-	msm7627a_reserve_table[MEMTYPE_EBI1].size += msm_ion_camera_size;
-	msm7627a_reserve_table[MEMTYPE_EBI1].size += msm_ion_audio_size;
+	msm7627a_reserve_table[MEMTYPE_EBI1].size += RESERVE_KERNEL_EBI1_SIZE;
+	msm7627a_reserve_table[MEMTYPE_EBI1].size += msm_ion_camera_size_carving;
 	msm7627a_reserve_table[MEMTYPE_EBI1].size += msm_ion_sf_size;
 #endif
 }
 
 static void __init msm7627a_calculate_reserve_sizes(void)
 {
-	fix_sizes();
-	size_pmem_devices();
-	reserve_pmem_memory();
 	size_ion_devices();
 	reserve_ion_memory();
 }
@@ -903,14 +825,26 @@ static struct reserve_info msm7627a_reserve_info __initdata = {
 
 static void __init msm7627a_reserve(void)
 {
+	fix_sizes();   // calculate sizes before call msm_reserve()
 	reserve_info = &msm7627a_reserve_info;
-	msm_reserve();
 	memblock_remove(MSM8625_WARM_BOOT_PHYS, SZ_32);
+	memblock_remove(BOOTLOADER_BASE_ADDR, msm_ion_audio_size);
+	msm_reserve();
+#ifdef CONFIG_CMA
+	dma_declare_contiguous(
+			&ion_cma_device.dev,
+			msm_ion_camera_size,
+			CAMERA_HEAP_BASE,
+			0x26000000);
+#endif
 }
 
 static void __init msm8625_reserve(void)
 {
-	memblock_remove(MSM8625_SECONDARY_PHYS, SZ_8);
+	unsigned long sz = get_ddr_size();
+	pr_info("%s: DDR size = 0x%lx (%ld MB)\n", __func__, sz, sz/0x100000);
+	memblock_remove(MSM8625_CPU_PHYS, SZ_8);
+	memblock_remove(MSM8625_NON_CACHE_MEM, SZ_2K);
 	msm7627a_reserve();
 }
 
