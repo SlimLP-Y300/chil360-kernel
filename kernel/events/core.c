@@ -1195,7 +1195,7 @@ static int __perf_remove_from_context(void *info)
 }
 
 #ifdef CONFIG_SMP
-static void perf_retry_remove(struct perf_event *event)
+static void __ref perf_retry_remove(struct perf_event *event)
 {
 	int up_ret;
 	/*
@@ -1212,7 +1212,7 @@ static void perf_retry_remove(struct perf_event *event)
 		       event->cpu, up_ret);
 }
 #else
-static void perf_retry_remove(struct perf_event *event)
+static void __ref perf_retry_remove(struct perf_event *event)
 {
 }
 #endif
