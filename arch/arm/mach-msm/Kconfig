@@ -2446,6 +2446,13 @@ config MSM_FAKE_BATTERY
 		help
 		 Enables MSM fake battery driver.
 
+config MSM_BATTERY_CHG_LEGACY
+	tristate "MSM battery Charger Legacy RPC"
+	depends on ARCH_MSM
+	default n
+	help
+	  Say Y to enable support for the Legacy battery RPC
+
 config MSM_QDSP6_APR
 	bool "Audio QDSP6 APR support"
 	depends on MSM_SMD

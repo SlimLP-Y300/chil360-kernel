@@ -15,7 +15,7 @@
  * this needs to be before <linux/kernel.h> is loaded,
  * and <linux/sched.h> loads <linux/kernel.h>
  */
-#define DEBUG  0
+#define DEBUG 1
 
 #include <linux/slab.h>
 #include <linux/earlysuspend.h>
@@ -36,6 +36,10 @@
 
 #ifdef CONFIG_TOUCHSCREEN_HIMAX
 #include <linux/input/himax_ts.h>
+#endif
+
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+#define	CHG_GET_GENERAL_STATUS_PROC	9
 #endif
 
 #define BATTERY_RPC_PROG	0x30000089
@@ -65,8 +69,13 @@
 #define BATTERY_CB_ID_ALL_ACTIV		1
 #define BATTERY_CB_ID_LOW_VOL		2
 
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+#define	BATTERY_LOW		3500
+#define	BATTERY_HIGH		4200
+#else
 #define BATTERY_LOW		3200
 #define BATTERY_HIGH		4300
+#endif
 
 #define ONCRPC_CHG_GET_GENERAL_STATUS_PROC	12
 #define ONCRPC_CHARGER_API_VERSIONS_PROC	0xffffffff
@@ -128,6 +137,11 @@ enum chg_charger_status_type {
 	/* Invalid charger status.  */
 	CHARGER_STATUS_INVALID
 };
+enum chg_charger_status_type_legacy {
+	L_CHARGER_STATUS_GOOD,
+	L_CHARGER_STATUS_WEAK,
+	L_CHARGER_STATUS_NULL         /* BATTERY_STATUS_INVALID */
+};
 
 /*
  *This enum contains defintions of the charger hardware type
@@ -146,6 +160,12 @@ enum chg_charger_hardware_type {
 	/* Invalid charger hardware status.        */
 	CHARGER_TYPE_INVALID
 };
+enum chg_charger_hardware_type_legacy {
+	L_CHARGER_TYPE_USB_PC,
+	L_CHARGER_TYPE_USB_WALL,
+	L_CHARGER_TYPE_USB_UNKNOWN,    /* CHARGER_TYPE_INVALID */
+	L_CHARGER_TYPE_USB_CARKIT
+};
 
 /*
  *  This enum contains defintions of the battery status
@@ -163,6 +183,11 @@ enum chg_battery_status_type {
 	/* Invalid battery status.    */
 	BATTERY_STATUS_INVALID
 };
+enum chg_battery_status_type_legacy {
+	L_BATTERY_STATUS_GOOD,
+	L_BATTERY_STATUS_OVER_TEMPERATURE,   /* BATTERY_STATUS_BAD_TEMP */
+	L_BATTERY_STATUS_NULL                /* BATTERY_STATUS_REMOVED */
+}; 
 
 /*
  *This enum contains defintions of the battery voltage level
@@ -181,6 +206,27 @@ enum chg_battery_level_type {
 };
 
 #ifndef CONFIG_BATTERY_MSM_FAKE
+
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+struct rpc_reply_charger {
+	struct rpc_reply_hdr hdr;
+	u32 more_data;
+
+	u32 charger_status;
+	u32 charger_hardware;
+	u32 hide;
+	u32 battery_status;
+	u32 battery_voltage;
+	u32 battery_capacity;
+	s32 battery_temp;
+	u32 is_charging;
+	u32 is_charging_complete;
+	u32 is_charging_failed;
+};
+
+static struct rpc_reply_charger reply_charger;
+#endif
+
 struct rpc_reply_batt_chg_v1 {
 	struct rpc_reply_hdr hdr;
 	u32 	more_data;
@@ -215,6 +261,7 @@ struct msm_battery_info {
 	u32 voltage_min_design;
 	u32 voltage_fail_safe;
 	u32 chg_api_version;
+	u32 chg_api_ver_real;
 	u32 batt_technology;
 	u32 batt_api_version;
 
@@ -426,15 +473,38 @@ static int msm_batt_get_batt_chg_status(void)
 	memset(&rep_batt_chg, 0, sizeof(rep_batt_chg));
 
 	v1p = &rep_batt_chg.v1;
+
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+	memset(&reply_charger, 0, sizeof(reply_charger));
+	rc = msm_rpc_call_reply(msm_batt_info.chg_ep,
+				CHG_GET_GENERAL_STATUS_PROC,
+				&req_batt_chg, sizeof(req_batt_chg),
+				&reply_charger, sizeof(reply_charger),
+				msecs_to_jiffies(BATT_RPC_TIMEOUT));
+#else		
 	rc = msm_rpc_call_reply(msm_batt_info.chg_ep,
 				ONCRPC_CHG_GET_GENERAL_STATUS_PROC,
 				&req_batt_chg, sizeof(req_batt_chg),
 				&rep_batt_chg, sizeof(rep_batt_chg),
 				msecs_to_jiffies(BATT_RPC_TIMEOUT));
+#endif
 	if (rc < 0) {
 		pr_err("%s: ERROR. msm_rpc_call_reply failed! proc=%d rc=%d\n",
 		       __func__, ONCRPC_CHG_GET_GENERAL_STATUS_PROC, rc);
 		return rc;
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+	} else if (be32_to_cpu(reply_charger.more_data)) {
+		be32_to_cpu_self(reply_charger.charger_status);
+		be32_to_cpu_self(reply_charger.charger_hardware);
+		be32_to_cpu_self(reply_charger.hide);
+		be32_to_cpu_self(reply_charger.battery_status);
+		be32_to_cpu_self(reply_charger.battery_voltage);
+		be32_to_cpu_self(reply_charger.battery_capacity);
+		be32_to_cpu_self(reply_charger.battery_temp);
+		be32_to_cpu_self(reply_charger.is_charging);
+		be32_to_cpu_self(reply_charger.is_charging_complete);
+		be32_to_cpu_self(reply_charger.is_charging_failed);
+#else
 	} else if (be32_to_cpu(v1p->more_data)) {
 		be32_to_cpu_self(v1p->charger_status);
 		be32_to_cpu_self(v1p->charger_type);
@@ -442,6 +512,7 @@ static int msm_batt_get_batt_chg_status(void)
 		be32_to_cpu_self(v1p->battery_level);
 		be32_to_cpu_self(v1p->battery_voltage);
 		be32_to_cpu_self(v1p->battery_temp);
+#endif
 	} else {
 		pr_err("%s: No battery/charger data in RPC reply\n", __func__);
 		return -EIO;
@@ -460,11 +531,57 @@ static void msm_batt_update_psy_status(void)
 	u32     battery_voltage;
 	u32	battery_temp;
 	struct	power_supply	*supp;
+	struct rpc_reply_batt_chg_v1 * v1p = &rep_batt_chg.v1;
 
 	pr_info("%s: enter\n", __func__);
 
 	if (msm_batt_get_batt_chg_status())
 		return;
+
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+	v1p->more_data = reply_charger.more_data;
+
+	switch (reply_charger.charger_status) {
+		case L_CHARGER_STATUS_GOOD:
+			v1p->charger_status = CHARGER_STATUS_GOOD;
+			break;
+		case L_CHARGER_STATUS_WEAK:
+			v1p->charger_status = CHARGER_STATUS_WEAK;
+			break;
+		default:
+			v1p->charger_status = CHARGER_STATUS_INVALID;
+	}
+	switch (reply_charger.charger_hardware) {
+		case L_CHARGER_TYPE_USB_PC:
+			v1p->charger_type = CHARGER_TYPE_USB_PC;
+			break;
+		case L_CHARGER_TYPE_USB_WALL:
+			v1p->charger_type = CHARGER_TYPE_USB_WALL;
+			break;
+		case L_CHARGER_TYPE_USB_UNKNOWN:
+			v1p->charger_type = CHARGER_TYPE_USB_PC;
+			break;
+		default:
+			v1p->charger_type = CHARGER_TYPE_NONE;
+	}
+	switch (reply_charger.battery_status) {
+		case L_BATTERY_STATUS_GOOD:
+			v1p->battery_status = CHARGER_STATUS_GOOD;
+			break;
+		case L_BATTERY_STATUS_OVER_TEMPERATURE:
+			v1p->battery_status = BATTERY_STATUS_BAD_TEMP;
+			break;
+		default:
+			v1p->battery_status = BATTERY_STATUS_REMOVED;
+	}
+	v1p->battery_voltage  = reply_charger.battery_voltage & 0xFFFF;
+	v1p->battery_temp     = reply_charger.battery_temp * 10;
+	if ((reply_charger.battery_capacity & 0x7F) == 100) {
+		v1p->battery_level = BATTERY_LEVEL_FULL;
+	} else {
+		v1p->battery_level = BATTERY_LEVEL_GOOD;
+	}
+#endif
 
 	charger_status = rep_batt_chg.v1.charger_status;
 	charger_type = rep_batt_chg.v1.charger_type;
@@ -489,16 +606,36 @@ static void msm_batt_update_psy_status(void)
 		 * Nothing changed in Battery or charger status.
 		 */
 		unnecessary_event_count++;
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+		pr_info("BATT: same event count = %u (%d, %d, %d) %d, %d, (%d, %d, %d)\n",
+			unnecessary_event_count, reply_charger.charger_status,
+			reply_charger.charger_hardware, reply_charger.battery_status,
+			battery_voltage, battery_temp,
+			reply_charger.is_charging, reply_charger.is_charging_complete,
+			reply_charger.is_charging_failed);
+#else
 		pr_info("BATT: same event count = %u\n",
 			unnecessary_event_count);
+#endif
 		return;
 	}
 
 	unnecessary_event_count = 0;
 
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+	pr_info("BATT: rcvd: %d(%d), %d(%d), %d(%d), %d(0x%x [%d%%]); %d, %d; (%d, %d, %d)\n",
+		 charger_status, reply_charger.charger_status,
+		 charger_type, reply_charger.charger_hardware,
+		 battery_status, reply_charger.battery_status,
+		 battery_level, reply_charger.battery_capacity, reply_charger.battery_capacity & 0x7F,
+		 battery_voltage, battery_temp,
+		 reply_charger.is_charging, reply_charger.is_charging_complete,
+		 reply_charger.is_charging_failed);
+#else
 	pr_info("BATT: rcvd: %d, %d, %d, %d; %d, %d\n",
 		 charger_status, charger_type, battery_status,
 		 battery_level, battery_voltage, battery_temp);
+#endif
 
 	if (battery_status == BATTERY_STATUS_INVALID &&
 	    battery_level != BATTERY_LEVEL_INVALID) {
@@ -1499,15 +1636,23 @@ static int __devinit msm_batt_init_rpc(void)
 #ifdef CONFIG_BATTERY_MSM_FAKE
 	pr_info("Faking MSM battery\n");
 #else
+	msm_batt_info.chg_api_ver_real = 0;
 
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+	msm_batt_info.chg_ep =
+		msm_rpc_connect_compatible(CHG_RPC_PROG, CHG_RPC_VER_1_1, 0);
+	msm_batt_info.chg_api_version =  CHG_RPC_VER_1_1;
+#else
 	msm_batt_info.chg_ep =
 		msm_rpc_connect_compatible(CHG_RPC_PROG, CHG_RPC_VER_4_1, 0);
 	msm_batt_info.chg_api_version =  CHG_RPC_VER_4_1;
+#endif
 	if (msm_batt_info.chg_ep == NULL) {
 		pr_err("%s: rpc connect CHG_RPC_PROG = NULL\n", __func__);
 		return -ENODEV;
 	}
 
+#ifndef CONFIG_MSM_BATTERY_CHG_LEGACY
 	if (IS_ERR(msm_batt_info.chg_ep)) {
 		msm_batt_info.chg_ep = msm_rpc_connect_compatible(
 				CHG_RPC_PROG, CHG_RPC_VER_3_1, 0);
@@ -1528,6 +1673,7 @@ static int __devinit msm_batt_init_rpc(void)
 				CHG_RPC_PROG, CHG_RPC_VER_2_2, 0);
 		msm_batt_info.chg_api_version =  CHG_RPC_VER_2_2;
 	}
+#endif
 	if (IS_ERR(msm_batt_info.chg_ep)) {
 		rc = PTR_ERR(msm_batt_info.chg_ep);
 		pr_err("%s: FAIL: rpc connect for CHG_RPC_PROG. rc=%d\n",
@@ -1538,12 +1684,13 @@ static int __devinit msm_batt_init_rpc(void)
 
 	/* Get the real 1.x version */
 	if (msm_batt_info.chg_api_version == CHG_RPC_VER_1_1)
-		msm_batt_info.chg_api_version =
+		msm_batt_info.chg_api_ver_real =
 			msm_batt_get_charger_api_version();
 
 	/* Fall back to 1.1 for default */
 	if (msm_batt_info.chg_api_version < 0)
 		msm_batt_info.chg_api_version = CHG_RPC_VER_1_1;
+
 	msm_batt_info.batt_api_version =  BATTERY_RPC_VER_4_1;
 
 	msm_batt_info.batt_client =
@@ -1612,6 +1759,9 @@ static int __init msm_batt_init(void)
 	pr_info("%s: Charger/Battery = 0x%08x/0x%08x (RPC version)\n",
 		__func__, msm_batt_info.chg_api_version,
 		msm_batt_info.batt_api_version);
+
+	pr_info("%s: Real Charger = 0x%08x (RPC version)\n",
+		__func__, msm_batt_info.chg_api_ver_real);
 
 	return 0;
 }
