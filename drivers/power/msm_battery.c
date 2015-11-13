@@ -34,6 +34,10 @@
 #include <mach/msm_rpcrouter.h>
 #include <mach/msm_battery.h>
 
+#ifdef CONFIG_TOUCHSCREEN_HIMAX
+#include <linux/input/himax_ts.h>
+#endif
+
 #define BATTERY_RPC_PROG	0x30000089
 #define BATTERY_RPC_VER_1_1	0x00010001
 #define BATTERY_RPC_VER_2_1	0x00020001
@@ -564,6 +568,14 @@ static void msm_batt_update_psy_status(void)
 				POWER_SUPPLY_STATUS_CHARGING;
 		}
 	}
+
+#ifdef CONFIG_TOUCHSCREEN_HIMAX
+	if (msm_batt_info.batt_status == POWER_SUPPLY_STATUS_CHARGING) {
+		himax_set_chg_status(1);
+	} else {
+		himax_set_chg_status(0);
+	}
+#endif
 
 	/* Correct battery voltage and status */
 	if (!battery_voltage) {
