@@ -648,7 +648,7 @@ static void msm_batt_update_psy_status(void)
 	msm_batt_info.battery_temp 	= battery_temp;
 
 	if (msm_batt_info.battery_voltage != battery_voltage) {
-
+#ifdef CONFIG_MSM_BATTERY_SHUTDOWN
 		/* Android doesn't initiate shutdown even if voltage is less
 		 * than minimum batt level if USB is connected. Hence report
 		 * fake USB disconnection, in such scenario. Do this only when
@@ -661,7 +661,7 @@ static void msm_batt_update_psy_status(void)
 			msm_batt_info.current_chg_source = 0;
 			supp = &msm_psy_batt;
 		}
-
+#endif
 		msm_batt_info.battery_voltage  	= battery_voltage;
 		msm_batt_info.batt_capacity =
 			msm_batt_info.calculate_capacity(battery_voltage);
