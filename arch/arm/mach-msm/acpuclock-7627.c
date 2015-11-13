@@ -1013,7 +1013,7 @@ void acpuclk_set_vdd(unsigned int khz, int vdd_uv) {
 #endif        /* CONFIG_CPU_FREQ_VDD_LEVELS */
 
 
-static unsigned long acpuclk_7627_get_rate(int cpu)
+unsigned long acpuclk_7627_get_rate(int cpu)
 {
 	WARN_ONCE(drv_state.current_speed == NULL,
 		  "%s: not initialized\n", __func__);
