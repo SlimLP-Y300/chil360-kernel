@@ -494,6 +494,12 @@ config MACH_MSM7X27A_FFA
         help
           Support for the Qualcomm MSM7x27A FFA.
 
+config JSR_KERNEL
+	depends on ARCH_MSM7X27A
+	bool "JSR Tech Kernel"
+	help
+	  Support for the JSR Kernel
+
 #begin add by zxb 20121218
 config MACH_MSM7X27A_D9
         depends on ARCH_MSM7X27A

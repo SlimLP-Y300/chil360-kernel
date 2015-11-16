@@ -330,7 +330,11 @@ hw_lcd_interface_type get_hw_lcd_interface_type(void)
 {
 	hw_lcd_interface_type lcd_interface_type;
 	lcd_panel_type  hw_lcd_panel = LCD_NONE;
-	
+
+#ifdef CONFIG_JSR_KERNEL
+	lcd_interface_type = LCD_IS_MIPI_CMD;   // mipi_cmd_novatek_sharp_qhd
+#endif
+#ifdef CONFIG_HUAWEI_KERNEL
 	hw_lcd_panel = get_lcd_panel_type();	
 
 	if (machine_is_msm7x30_u8800())
@@ -423,12 +427,17 @@ hw_lcd_interface_type get_hw_lcd_interface_type(void)
 				break;
 		}
 	}
+#endif
 	return lcd_interface_type;
 }
 /* C8820VC uses PM pwm. */
 hw_lcd_ctrl_bl_type get_hw_lcd_ctrl_bl_type(void)
 {
-    hw_lcd_ctrl_bl_type ctrl_bl_type = CTRL_BL_BY_UNKNOW;
+	hw_lcd_ctrl_bl_type ctrl_bl_type = CTRL_BL_BY_UNKNOW;
+#ifdef CONFIG_JSR_KERNEL
+	ctrl_bl_type = CTRL_BL_BY_MSM;
+#endif
+#ifdef CONFIG_HUAWEI_KERNEL
 	/*control backlight by MSM pwm*/
 	/* C8668D uses PM pwm. */
 	if (machine_is_msm7x27a_U8815() 
@@ -457,7 +466,8 @@ hw_lcd_ctrl_bl_type get_hw_lcd_ctrl_bl_type(void)
 	{
 		ctrl_bl_type = CTRL_BL_BY_LCD;
 	}
-    return ctrl_bl_type;
+#endif
+	return ctrl_bl_type;
 }
 /*
  *brief: get lcd panel resolution
