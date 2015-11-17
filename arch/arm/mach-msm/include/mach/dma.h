@@ -239,7 +239,7 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
  *
  * On the 8X25 platform SDC1 is for sd card. We use channel 10 for sd card on 8X25 platform.
  */
-#ifdef CONFIG_HUAWEI_KERNEL
+#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
 #ifdef CONFIG_ARCH_MSM8625
 #define DMOV_SDC1_CHAN        10
 #else
@@ -254,7 +254,7 @@ int msm_dmov_exec_cmd(unsigned id, unsigned int cmdptr);
  * Separate the DMA channel of eMMC, sd card and WIFI.
  * Fix the DMA flushing destroy ext4 file system issue.
  */
-#ifdef CONFIG_HUAWEI_KERNEL
+#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
 #ifdef CONFIG_ARCH_MSM8625
 #define DMOV_SDC2_CHAN        7
 #else
