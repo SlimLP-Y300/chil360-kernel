@@ -1181,7 +1181,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		max_dtr = card->csd.max_dtr;
 	}
 
-#ifndef CONFIG_HUAWEI_NO_HYNIX_HACK
+#if 0 /*CONFIG_HUAWEI_NO_HYNIX_HACK*/
 	/* Set clk to 26MHz to fix hynix emmc CMD6 timeout issue. */
 	mmc_set_clock(host, MMC_HIGH_26_MAX_DTR);
 #endif

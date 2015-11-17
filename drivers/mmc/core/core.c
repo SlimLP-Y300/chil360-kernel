@@ -59,7 +59,7 @@ static void mmc_clk_scaling(struct mmc_host *host, bool from_wq);
  */
 #define MMC_BKOPS_MAX_TIMEOUT	(30 * 1000) /* max time to wait in ms */
 
-#ifndef CONFIG_HUAWEI_KERNEL
+#if 0 /*CONFIG_HUAWEI_KERNEL*/
 #include <asm/mach-types.h>
 #define MSM_SDCARD_SCAN_CYCLE	20
 #endif
@@ -2781,7 +2781,7 @@ void mmc_rescan(struct work_struct *work)
 	if (host->caps & MMC_CAP_NEEDS_POLL) {
 		wake_lock(&host->detect_wake_lock);
 /*set 20s scan cycle*/
-#ifndef CONFIG_HUAWEI_KERNEL
+#if 0 /*CONFIG_HUAWEI_KERNEL*/
         /*U8860-51 is set to interupt mode*/
         if( (machine_is_msm8255_c8860()) 
             || (machine_is_msm8255_u8860())
