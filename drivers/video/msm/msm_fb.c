@@ -50,10 +50,12 @@
 #include "tvenc.h"
 #include "mdp.h"
 #include "mdp4.h"
+
 /*add the code for dynamic gamma function  */
 #if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
 #include <linux/hardware_self_adapt.h>
 #endif
+
 #ifdef CONFIG_HUAWEI_KERNEL
 #include "hw_lcd_common.h"
 #endif
@@ -61,6 +63,7 @@
 #ifdef CONFIG_HUAWEI_EVALUATE_POWER_CONSUMPTION 
 #include <mach/msm_battery.h>
 #endif
+
 #ifdef CONFIG_FB_MSM_LOGO
 #ifndef CONFIG_HUAWEI_KERNEL
 #define INIT_IMAGE_FILE "/initlogo.rle"
@@ -71,21 +74,23 @@ extern int load_888rle_image(char *filename);
 #endif
 #endif
 
-/* ɾ��˶δ��� */
 
 /*modify the number of framebuffer*/
 /*Add 4 framebuffer and delete the mem adapter strategy*/	
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MSM_FB_NUM	3
 #endif
+
 /*add the code for dynamic gamma function  */
 #ifdef CONFIG_FB_DYNAMIC_GAMMA
 extern int nt35560_dimytic_gamma_setting_gamma(int);
 #endif
+
 static unsigned char *fbram;
 static unsigned char *fbram_phys;
 static int fbram_size;
 static boolean bf_supported;
+
 /* Set backlight on resume after 50 ms after first
  * pan display on the panel. This is to avoid panel specific
  * transients during resume.
@@ -159,7 +164,20 @@ int msm_fb_config_cabc(struct msm_fb_data_type *mfd, struct msmfb_cabc_config ca
 int msm_fb_set_dynamic_gamma(struct msm_fb_data_type *mfd, enum danymic_gamma_mode gamma_mode);
 #endif
 
-/* ɾ��˶δ��� */
+
+#ifdef CONFIG_HUAWEI_KERNEL
+static int hack_lcd = 1;
+#else
+static int hack_lcd = 0;
+#endif
+
+static int __init hack_lcd_setup(char *str)
+{
+	get_option(&str, &hack_lcd);
+	return 0;
+}
+early_param("hack_lcd", hack_lcd_setup);
+
 
 #ifdef MSM_FB_ENABLE_DBGFS
 
@@ -178,21 +196,22 @@ struct dentry *msm_fb_debugfs_root;
 struct dentry *msm_fb_debugfs_file[MSM_FB_MAX_DBGFS];
 static int bl_scale, bl_min_lvl;
 
-#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
+
 boolean lcd_have_resume = FALSE;
-/* Remove qcom backlight mechanism,user our own */
 boolean last_backlight_setting = FALSE;
 int last_backlight_level = 0;
+
 #ifdef CONFIG_FB_DYNAMIC_GAMMA
 int last_gamma_mode = GAMMA25;
 #endif
+
 #ifdef CONFIG_FB_AUTO_CABC
 struct msmfb_cabc_config last_cabc_mode;
 #endif
+
 boolean last_cabc_setting = FALSE;
 boolean last_gamma_setting = FALSE;
-/*delete some lines*/
-#endif
+
 
 #ifdef CONFIG_HUAWEI_EVALUATE_POWER_CONSUMPTION
 static int bright = -1;
@@ -273,22 +292,19 @@ static void msm_fb_set_bl_brightness(struct led_classdev *led_cdev,
 		bl_lvl = 1;
 /* Remove qcom backlight mechanism,user our own */
 /* If LCD don't resume ,don't turn on LCD backlight */
-#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
-	if(FALSE == lcd_have_resume)
-	{
-		last_backlight_level = bl_lvl;
-		last_backlight_setting = TRUE;
-	}
-	else
-	{
+	if (hack_lcd) {
+		if(FALSE == lcd_have_resume) {
+			last_backlight_level = bl_lvl;
+			last_backlight_setting = TRUE;
+		} else {
+			msm_fb_set_backlight(mfd, bl_lvl);
+			last_backlight_setting = FALSE;
+		}
+	} else {
+		down(&mfd->sem);
 		msm_fb_set_backlight(mfd, bl_lvl);
-		last_backlight_setting = FALSE;
+		up(&mfd->sem);
 	}
-#else
-	down(&mfd->sem);
-	msm_fb_set_backlight(mfd, bl_lvl);
-	up(&mfd->sem);
-#endif
 }
 
 static struct led_classdev backlight_led = {
@@ -437,9 +453,7 @@ static void msm_fb_remove_sysfs(struct platform_device *pdev)
 	sysfs_remove_group(&mfd->fbi->dev->kobj, &msm_fb_attr_group);
 }
 
-#if !defined(CONFIG_HUAWEI_KERNEL) && !defined(CONFIG_JSR_KERNEL)
 static void bl_workqueue_handler(struct work_struct *work);
-#endif
 
 static ssize_t msm_fb_xres(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -554,9 +568,7 @@ static int msm_fb_probe(struct platform_device *pdev)
 
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
 
-#if !defined(CONFIG_HUAWEI_KERNEL) && !defined(CONFIG_JSR_KERNEL)
 	INIT_DELAYED_WORK(&mfd->backlight_worker, bl_workqueue_handler);
-#endif
 
 	if (!mfd)
 		return -ENODEV;
@@ -950,10 +962,7 @@ static void msmfb_early_resume(struct early_suspend *h)
 }
 #endif
 
-/* Remove qcom backlight mechanism,user our own */
-#if !defined(CONFIG_HUAWEI_KERNEL) && !defined(CONFIG_JSR_KERNEL)
 static int unset_bl_level, bl_updated;
-#endif
 static int bl_level_old;
 static int mdp_bl_scale_config(struct msm_fb_data_type *mfd,
 						struct mdp_bl_scale_data *data)
@@ -998,21 +1007,25 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 	__u32 temp = bkl_lvl;
 
 /* Remove qcom backlight mechanism,user our own */
-#if !defined(CONFIG_HUAWEI_KERNEL) && !defined(CONFIG_JSR_KERNEL)
-	if (!mfd->panel_power_on || !bl_updated) {
-		unset_bl_level = bkl_lvl;
-		return;
-	} else {
-		unset_bl_level = 0;
+	if (!hack_lcd) {
+		if (!mfd->panel_power_on || !bl_updated) {
+			unset_bl_level = bkl_lvl;
+			return;
+		} else {
+			unset_bl_level = 0;
+		}
 	}
-#endif
 
 	msm_fb_scale_bl(&temp);
 	msm_fb_pan_idle(mfd);
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 
-	if ((pdata) && (pdata->set_backlight)) {
-#if !defined(CONFIG_HUAWEI_KERNEL) && !defined(CONFIG_JSR_KERNEL)
+	if (!pdata)
+		return;
+	if (!pdata->set_backlight)
+		return;
+
+	if (!hack_lcd) {
 		if (bl_level_old == temp) {
 			return;
 		}
@@ -1020,10 +1033,11 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 		pdata->set_backlight(mfd);
 		mfd->bl_level = bkl_lvl;
 		bl_level_old = temp;
-#else
+	} else {
 		if (bl_level_old == bkl_lvl) {
 			return;
 		}
+#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
 		if (get_hw_lcd_ctrl_bl_type() == CTRL_BL_BY_LCD)
 		{
 			/* MIPI use two semaphores */
@@ -1059,6 +1073,7 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 			}
 		}
 		else
+#endif
 		{
 			down(&mfd->sem);
 			mfd->bl_level = bkl_lvl;
@@ -1066,7 +1081,6 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 			up(&mfd->sem);
 		}
 		bl_level_old = mfd->bl_level;
-#endif
 #ifdef CONFIG_HUAWEI_EVALUATE_POWER_CONSUMPTION
         bright = bkl_lvl;
      	/*notify lcd consume after 1 seconds*/
@@ -1078,11 +1092,13 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 
 #ifdef CONFIG_HUAWEI_KERNEL
 int is_pwdn_chg_resume = 0;
+
 int from_pwdn_chg_resume(void)
 {
     return is_pwdn_chg_resume;
 }
 #endif
+
 static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 			    boolean op_enable)
 {
@@ -1103,16 +1119,16 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 	case FB_BLANK_UNBLANK:
 		if (!mfd->panel_power_on) {
 			msleep(16);
-         #ifdef CONFIG_HUAWEI_KERNEL
-            is_pwdn_chg_resume = 0;
-         #endif            
+#ifdef CONFIG_HUAWEI_KERNEL
+			is_pwdn_chg_resume = 0;
+#endif
 			ret = pdata->on(mfd->pdev);
 			if (ret == 0) {
 				mfd->panel_power_on = TRUE;
-                mfd->panel_driver_on = mfd->op_enable;
-
+				mfd->panel_driver_on = mfd->op_enable;
+			}
 /* LCD resume completed ,then turn on lcd backlight */
-#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
+			if (ret == 0 && hack_lcd) {
 				lcd_have_resume = TRUE;
 				/* Remove qcom backlight mechanism,user our own */
 				if(TRUE == last_backlight_setting)
@@ -1122,7 +1138,7 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 					printk("%s:Waiting for LCD resume ,then set backlight level=%d\n",__func__,last_backlight_level);
 				}
 #ifdef CONFIG_FB_DYNAMIC_GAMMA
-                /* delete the judgement is_panel_support_dynamic_gamma() */
+				/* delete the judgement is_panel_support_dynamic_gamma() */
 				if(TRUE == last_gamma_setting)
 				{
 					msm_fb_set_dynamic_gamma(mfd,last_gamma_mode);
@@ -1131,7 +1147,7 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 				}
 #endif
 #ifdef CONFIG_FB_AUTO_CABC
-                /* delete the judgement is_panel_support_auto_cabc() */
+				/* delete the judgement is_panel_support_auto_cabc() */
 				if(TRUE == last_cabc_setting)
 				{
 					msm_fb_config_cabc(mfd, last_cabc_mode);
@@ -1139,46 +1155,42 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 					printk("%s:Waiting for LCD resume ,then set cabc mode =%d\n",__func__,last_cabc_mode.mode);
 				}
 #endif
-#endif
 			}
 		}
 		break;
 #ifdef CONFIG_HUAWEI_KERNEL
 	case FB_BLANK_PWDN_GHG_RESUME:
 		mdelay(100);
-        is_pwdn_chg_resume = 1;
+		is_pwdn_chg_resume = 1;
 		ret = pdata->on(mfd->pdev);
-        mfd->panel_power_on = TRUE;
+		mfd->panel_power_on = TRUE;
 /* LCD resume completed ,then turn on lcd backlight */
-#ifdef CONFIG_HUAWEI_KERNEL
-		lcd_have_resume = TRUE;
-		/* Remove qcom backlight mechanism,user our own */
-		if(TRUE == last_backlight_setting)
-		{
-			msm_fb_set_backlight(mfd,last_backlight_level);
-			last_backlight_setting = FALSE;
-			printk("%s:Waiting for LCD resume ,then set backlight level=%d\n",__func__,last_backlight_level);
-		}
+		if (hack_lcd) {
+			lcd_have_resume = TRUE;
+			/* Remove qcom backlight mechanism,user our own */
+			if (TRUE == last_backlight_setting) {
+				msm_fb_set_backlight(mfd,last_backlight_level);
+				last_backlight_setting = FALSE;
+				printk("%s:Waiting for LCD resume ,then set backlight level=%d\n",__func__,last_backlight_level);
+			}
 #ifdef CONFIG_FB_DYNAMIC_GAMMA
-        /* delete the judgement is_panel_support_dynamic_gamma() */
-		if(TRUE == last_gamma_setting)
-		{
-			msm_fb_set_dynamic_gamma(mfd,last_gamma_mode);
-			last_gamma_setting = FALSE;
-			printk("%s:Waiting for LCD resume ,then set gamma mode =%d\n",__func__,last_gamma_mode);
-		}
+			/* delete the judgement is_panel_support_dynamic_gamma() */
+			if (TRUE == last_gamma_setting)	{
+				msm_fb_set_dynamic_gamma(mfd,last_gamma_mode);
+				last_gamma_setting = FALSE;
+				printk("%s:Waiting for LCD resume ,then set gamma mode =%d\n",__func__,last_gamma_mode);
+			}
 #endif
 #ifdef CONFIG_FB_AUTO_CABC
-        /* delete the judgement is_panel_support_auto_cabc() */
-		if(TRUE == last_cabc_setting)
-		{
-			msm_fb_config_cabc(mfd, last_cabc_mode);
-			last_cabc_setting =FALSE;
-			printk("%s:Waiting for LCD resume ,then set cabc mode =%d\n",__func__,last_cabc_mode.mode);
+			/* delete the judgement is_panel_support_auto_cabc() */
+			if (TRUE == last_cabc_setting)	{
+				msm_fb_config_cabc(mfd, last_cabc_mode);
+				last_cabc_setting =FALSE;
+				printk("%s:Waiting for LCD resume ,then set cabc mode =%d\n",__func__,last_cabc_mode.mode);
+			}
+#endif
 		}
-#endif
-#endif
-        break;
+		break;
 #endif
 	case FB_BLANK_VSYNC_SUSPEND:
 	case FB_BLANK_HSYNC_SUSPEND:
@@ -1189,24 +1201,24 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 			int curr_pwr_state;
 
 			/* Prevent the download of the cabc sequences than lcd_on , set flag to prevent it */
-#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
-			lcd_have_resume = FALSE;
-#endif
+			if (hack_lcd)
+				lcd_have_resume = FALSE;
+
 			mfd->op_enable = FALSE;
 			curr_pwr_state = mfd->panel_power_on;
 			mfd->panel_power_on = FALSE;
-/* Remove qcom backlight mechanism,user our own */
-#if !defined(CONFIG_HUAWEI_KERNEL) && !defined(CONFIG_JSR_KERNEL)
-			cancel_delayed_work_sync(&mfd->backlight_worker);
-			bl_updated = 0;
-#endif
+
+			if (!hack_lcd) {      /* Remove qcom backlight mechanism,user our own */
+				cancel_delayed_work_sync(&mfd->backlight_worker);
+				bl_updated = 0;
+			}
 
 			msleep(16);
 			ret = pdata->off(mfd->pdev);
 			if (ret)
 				mfd->panel_power_on = curr_pwr_state;
 
-                        msm_fb_release_timeline(mfd);
+			msm_fb_release_timeline(mfd);
 			mfd->op_enable = TRUE;
 		}
 		break;
@@ -1727,10 +1739,9 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	fbi->screen_base = fbram;
 	fbi->fix.smem_start = (unsigned long)fbram_phys;
 
-#if !defined(CONFIG_HUAWEI_KERNEL) && !defined(CONFIG_JSR_KERNEL)
-    memset(fbi->screen_base, 0x0, fix->smem_len);
-#endif
-    
+	if (!hack_lcd)
+		memset(fbi->screen_base, 0x0, fix->smem_len);
+
 	msm_iommu_map_contig_buffer(fbi->fix.smem_start,
 					DISPLAY_WRITE_DOMAIN,
 					GEN_POOL,
@@ -2072,7 +2083,6 @@ int msm_fb_signal_timeline(struct msm_fb_data_type *mfd)
 	return 0;
 }
 
-#if !defined(CONFIG_HUAWEI_KERNEL) && !defined(CONFIG_JSR_KERNEL)
 static void bl_workqueue_handler(struct work_struct *work)
 {
 	struct msm_fb_data_type *mfd = container_of(to_delayed_work(work),
@@ -2088,7 +2098,6 @@ static void bl_workqueue_handler(struct work_struct *work)
 		up(&mfd->sem);
 	}
 }
-#endif
 
 void msm_fb_release_timeline(struct msm_fb_data_type *mfd)
 {
@@ -2200,24 +2209,15 @@ static int msm_fb_pan_display(struct fb_var_screeninfo *var,
 	return msm_fb_pan_display_ex(info, &disp_commit);
 }
 
+static bool is_first_frame = TRUE;
+
 static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 			      struct fb_info *info)
 {
 	struct mdp_dirty_region dirty;
 	struct mdp_dirty_region *dirtyPtr = NULL;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
-/* < lishubin update baseline to J version begin */
-#ifndef CONFIG_HUAWEI_KERNEL
-	//struct msm_fb_panel_data *pdata;
-#endif
-/* lishubin update baseline to J version end > */
 
-#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
-    static bool is_first_frame = TRUE;
-#endif
-
-/* ɾ��˶δ��� */
-    
 	/*
 	 * If framebuffer is 2, io pen display is not allowed.
 	 */
@@ -2301,25 +2301,20 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 	mdp_set_dma_pan_info(info, dirtyPtr,
 			     (var->activate & FB_ACTIVATE_VBL));
 /* Do not refresh the first frame, because the frame's data is 0x00 */
-#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
-	if(unlikely(is_first_frame == TRUE))
-	{
+	if (hack_lcd && is_first_frame) {
 		is_first_frame = FALSE;
 		printk("%s:Don't refresh the first frame to LCD\n",__func__);
+	} else {
+		/* async call */
+		mdp_dma_pan_update(info);
 	}
-	else
-#endif
-	/* async call */
-	mdp_dma_pan_update(info);
 	msm_fb_signal_timeline(mfd);
 	up(&msm_fb_pan_sem);
 
 /* Remove qcom backlight mechanism,user our own */
-#if !defined(CONFIG_HUAWEI_KERNEL) && !defined(CONFIG_JSR_KERNEL)
-	if (unset_bl_level && !bl_updated)
+	if (!hack_lcd && unset_bl_level && !bl_updated)
 		schedule_delayed_work(&mfd->backlight_worker,
 				backlight_duration);
-#endif
 
 	if (info->node == 0 && (mfd->cont_splash_done)) /* primary */
 		mdp_free_splash_buffer(mfd);
@@ -3526,11 +3521,9 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 	ret = mdp4_overlay_play(info, &req);
 
 /* Remove qcom backlight mechanism,user our own */
-#if !defined(CONFIG_HUAWEI_KERNEL) && !defined(CONFIG_JSR_KERNEL)
-	if (unset_bl_level && !bl_updated)
+	if (!hack_lcd && unset_bl_level && !bl_updated)
 		schedule_delayed_work(&mfd->backlight_worker,
 				backlight_duration);
-#endif
 
 	if (info->node == 0 && (mfd->cont_splash_done)) /* primary */
 		mdp_free_splash_buffer(mfd);
