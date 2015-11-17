@@ -58,16 +58,15 @@ void msm_pm_power_off(void)
 void msm_pm_restart(char str, const char *cmd)
 {
 	pmem_log_start(9);
-	
-	if ((str >= '0') && (str <= '9'))
-		restart_reason = RESTART_REASON_BOOT_BASE | (str - '0');
 
-	if (str == 'a')
-		restart_reason = RESTART_REASON_RAMDUMP;
-
-	if (str == 'b')
-		restart_reason = RESTART_REASON_POWEROFF;
-
+	if (!cmd || cmd[0] == 0) {
+		if ((str >= '0') && (str <= '9'))
+			restart_reason = RESTART_REASON_BOOT_BASE | (str - '0');
+		if (str == 'a')
+			restart_reason = RESTART_REASON_RAMDUMP;
+		if (str == 'b')
+			restart_reason = RESTART_REASON_POWEROFF;
+	}
 	pr_info("The reset reason is 0x%08x\n", restart_reason);
 
 	/* Disable interrupts */

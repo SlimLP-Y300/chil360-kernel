@@ -476,6 +476,8 @@ static void migrate_to_reboot_cpu(void)
  */
 void kernel_restart(char *cmd)
 {
+	if (!cmd || cmd[0] == 0)
+		cmd = "reboot";
 	kernel_restart_prepare(cmd);
 	migrate_to_reboot_cpu();
 	syscore_shutdown();
