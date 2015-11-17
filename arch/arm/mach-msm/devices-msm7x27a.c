@@ -1346,7 +1346,7 @@ static struct resource msm8625_resources_sdc3[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
     /*change DMA channel to 8*/
-#ifdef CONFIG_HUAWEI_KERNEL
+#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
     {
         .name   = "dma_chnl",
         .start  = DMOV_SDC3_CHAN,
