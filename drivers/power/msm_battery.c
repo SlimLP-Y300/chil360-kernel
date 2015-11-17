@@ -42,6 +42,13 @@
 #define	CHG_GET_GENERAL_STATUS_PROC	9
 #endif
 
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+/*delete the macro "CONFIG_HAS_EARLYSUSPEND", it will conduce to the charge staus can't update in time*/
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#undef CONFIG_HAS_EARLYSUSPEND
+#endif
+#endif
+
 #define BATTERY_RPC_PROG	0x30000089
 #define BATTERY_RPC_VER_1_1	0x00010001
 #define BATTERY_RPC_VER_2_1	0x00020001
@@ -70,7 +77,7 @@
 #define BATTERY_CB_ID_LOW_VOL		2
 
 #ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
-#define	BATTERY_LOW		3500
+#define	BATTERY_LOW		3200
 #define	BATTERY_HIGH		4200
 #else
 #define BATTERY_LOW		3200
@@ -373,6 +380,7 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CAPACITY,
+	POWER_SUPPLY_PROP_TEMP,
 };
 
 static int msm_batt_power_get_property(struct power_supply *psy,
@@ -382,6 +390,8 @@ static int msm_batt_power_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		val->intval = msm_batt_info.batt_status;
+		if (msm_batt_info.batt_capacity >= 99)
+			val->intval = POWER_SUPPLY_STATUS_FULL;
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = msm_batt_info.batt_health;
@@ -394,15 +404,24 @@ static int msm_batt_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN:
 		val->intval = msm_batt_info.voltage_max_design;
+		if (val->intval > 0 && val->intval < 90000)
+			val->intval *= 1000;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN:
 		val->intval = msm_batt_info.voltage_min_design;
+		if (val->intval > 0 && val->intval < 90000)
+			val->intval *= 1000;
 		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:		
 		val->intval = msm_batt_info.battery_voltage;
+		if (val->intval > 0 && val->intval < 90000)
+			val->intval *= 1000;
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		val->intval = msm_batt_info.batt_capacity;
+		break;
+	case POWER_SUPPLY_PROP_TEMP:
+		val->intval = msm_batt_info.battery_temp;
 		break;
 	default:
 		return -EINVAL;
