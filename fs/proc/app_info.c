@@ -126,6 +126,14 @@ const s_board_hw_version_type s_board_hw_version_table[] =
    {MACH_TYPE_MSM8255_U8730,"MSM8255_U8730","HD1U873M "},
    {MACH_TYPE_MSM8255_U8667,"MSM8255_U8667","HD1U866M "},
    {MACH_TYPE_MSM8255_U8860_R,"MSM8255_U8860-R","HD5U886M "},
+#ifdef CONFIG_JSR_KERNEL
+   /*8x25 platform QCOM */
+   {MACH_TYPE_MSM8625_EVB,"MSM8625_EVB",""},
+   {MACH_TYPE_MSM8625_QRD5,"MSM8X25_QRD5",""},
+   {MACH_TYPE_MSM8625_QRD7,"MSM8625_QRD7",""},
+   {MACH_TYPE_MSM8625Q_SKUD,"MSM8625Q_SKUD",""},
+   {MACH_TYPE_MSM8625Q_SKUE,"MSM8625Q_SKUE",""},
+#endif
 };
 
 void set_s_board_hw_version(char *s_board_id,char *hw_version_id)
@@ -382,8 +390,11 @@ static int app_version_read_proc(char *page, char **start, off_t off,
 				 int count, int *eof, void *data)
 {
 	int len;
-	// char *ker_ver = "HUAWEI_KERNEL_VERSION";
+#ifdef CONFIG_JSR_KERNEL
+	char *ker_ver = "chil360-kernel-jsr";
+#else
 	char *ker_ver = HUAWEI_KERNEL_VERSION;
+#endif
 	char *lcd_name = NULL;
 	char * touch_info = NULL;
 	char * battery_name = NULL;

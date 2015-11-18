@@ -196,6 +196,7 @@ struct bt_device bt_device_array[] =
 /* get bt device model by board id */
 hw_bt_device_model get_hw_bt_device_model(void)
 {
+#ifdef CONFIG_HUAWEI_KERNEL
     if(machine_is_msm8x25_U8950D()
       || machine_is_msm8x25_U8950()
       || machine_is_msm7x27a_H867G()
@@ -221,10 +222,8 @@ hw_bt_device_model get_hw_bt_device_model(void)
     {
         return BT_WCN2243;
     }
-    else
-    {
-        return BT_UNKNOWN;
-    }
+#endif
+    return BT_UNKNOWN;
 }
 
 /* get bt device name */
@@ -279,6 +278,7 @@ void get_audio_property(char *audio_property)
   audio_property_type dts_enable = DTS_DISABLE;
   audio_property_type submic_mmi = SMICMMI_ENABLE;
   
+#ifdef CONFIG_HUAWEI_KERNEL
   mic_type = get_audio_mic_type();
   fir_enable = get_audio_fir_enabled();
   fm_type =  get_audio_fm_type();
@@ -286,6 +286,7 @@ void get_audio_property(char *audio_property)
   spkmic_type = get_audio_spkmic_type();
   dts_enable = get_audio_dts_enable();
   submic_mmi = get_audio_mmi_submic_test_enable();
+#endif
   
   property = spkmic_type | spk_type | fm_type | fir_enable | mic_type | dts_enable | submic_mmi;
 
@@ -299,7 +300,11 @@ unsigned int get_hw_lcd_id(void)
 
 hw_ver_sub_type get_hw_sub_board_id(void)
 {
+#ifdef CONFIG_HUAWEI_KERNEL
 	return (hw_ver_sub_type)(sub_board_id&HW_VER_SUB_MASK);
+#else
+	return 0;
+#endif
 }
 
 #ifdef CONFIG_HUAWEI_POWER_DOWN_CHARGE
@@ -547,6 +552,17 @@ lcd_type get_hw_lcd_resolution_type(void)
 lcd_panel_type get_lcd_panel_type(void)
 {
 	lcd_panel_type hw_lcd_panel = LCD_NONE;
+
+#ifdef CONFIG_JSR_KERNEL
+#ifdef CONFIG_JSR_D9
+	hw_lcd_panel = MIPI_CMD_NT35516_SHARP_QHD;
+#endif
+#ifdef CONFIG_JSR_I6
+	hw_lcd_panel = MIPI_CMD_NT35516_NOVATEK_QHD;
+#endif
+#endif
+
+#ifdef CONFIG_HUAWEI_KERNEL
 	/*remove two products to adjust new LCD type*/
 	/* separate Y300 from 8825 serials and make sure it can run BOE LCD well */
 	/* Add Oem LCD driver */
@@ -787,6 +803,7 @@ lcd_panel_type get_lcd_panel_type(void)
 	{
 		hw_lcd_panel = LCD_HX8357B_TIANMA_HVGA;
 	}
+#endif
 	return hw_lcd_panel;
 }
 /*modify the size of famebuffer*/
@@ -870,6 +887,7 @@ SIDE EFFECTS
 compass_gs_position_type  get_compass_gs_position(void)
 {
 	compass_gs_position_type compass_gs_position=COMPASS_TOP_GS_TOP;
+#ifdef CONFIG_HUAWEI_KERNEL
 	/* modify compass and gs position by board id */
     //move C8820\25D define from TOP to BOTTOM
     if (machine_is_msm7x27a_surf() 
@@ -939,6 +957,7 @@ compass_gs_position_type  get_compass_gs_position(void)
 	{
 		compass_gs_position=COMPASS_NONE_GS_BOTTOM;
 	}
+#endif
 	return compass_gs_position;
 }
 
@@ -1174,6 +1193,20 @@ char *get_lcd_panel_name(void)
 		case MIPI_CMD_NT35510_CHIMEI_WVGA:
 			pname = "CHIMEI NT35510";
 			break;
+
+		case MIPI_VIDEO_NT35516_SHARP_QHD:
+		case MIPI_CMD_NT35516_SHARP_QHD:
+			pname = "SHARP NT35516";
+			break;
+		case MIPI_VIDEO_NT35516_SUCCESS_QHD:
+		case MIPI_CMD_NT35516_SUCCESS_QHD:
+			pname = "SUCCESS NT35516";
+			break;
+		case MIPI_VIDEO_NT35516_NOVATEK_QHD:
+		case MIPI_CMD_NT35516_NOVATEK_QHD:
+			pname = "NOVATEK NT35516";
+			break;
+
 		default:
 			pname = "UNKNOWN LCD";
 			break;
@@ -1451,6 +1484,10 @@ tp_update_type is_need_update_fw(void)
  */
 hw_wifi_device_model get_hw_wifi_device_model(void)
 {
+#ifdef CONFIG_JSR_KERNEL
+	return WIFI_QUALCOMM_6005;
+#endif
+#ifdef CONFIG_HUAWEI_KERNEL
   if(machine_is_msm7x27a_U8185()|| machine_is_msm7x27a_U8661()|| machine_is_msm7x27a_C8668D()
         || machine_is_msm8x25_C8825D()
         || machine_is_msm8x25_U8825D() 
@@ -1479,6 +1516,7 @@ hw_wifi_device_model get_hw_wifi_device_model(void)
   {
       return WIFI_BROADCOM_4330;
   }
+#endif
 }
 
 /*  FUNCTION  get_hw_ds_type
