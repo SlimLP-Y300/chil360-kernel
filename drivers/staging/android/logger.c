@@ -29,7 +29,9 @@
 
 #include <asm/ioctls.h>
 
-#define CONFIG_LOGCAT_SIZE 64
+#ifndef CONFIG_LOGCAT_SIZE
+#define CONFIG_LOGCAT_SIZE 256
+#endif
 
 /*
  * struct logger_log - represents a specific log, such as 'main' or 'radio'
