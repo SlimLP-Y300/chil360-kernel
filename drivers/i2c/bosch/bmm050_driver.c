@@ -26,6 +26,8 @@
 #include "bmm050.h"
 #include "bs_log.h"
 
+#define CONFIG_MACH_LGE
+
 /* sensor specific */
 #define SENSOR_NAME "bmm050"
 

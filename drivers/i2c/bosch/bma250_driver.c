@@ -26,6 +26,8 @@
 #include <linux/earlysuspend.h>
 #endif
 
+#define CONFIG_MACH_LGE
+
 #define SENSOR_NAME 			"bma250"
 #define GRAVITY_EARTH                   9806550
 #define ABSMIN_2G                       (-GRAVITY_EARTH * 2)
@@ -1283,12 +1285,11 @@ static ssize_t bma250_fast_calibration_x_show(struct device *dev,
 * sensor SURV shake detection" 
 */
 		return sprintf(buf, "%d\n", atomic_read(&bma250->fast_calib_x_rslt));	
-#if 0
+#else
 	if (bma250_get_offset_target_x(bma250->bma250_client, &data) < 0)
 		return sprintf(buf, "Read error\n");
 
 	return sprintf(buf, "%d\n", data);
-#endif
 #endif
 }
 
@@ -1381,8 +1382,6 @@ static ssize_t bma250_fast_calibration_x_store(struct device *dev,
 static ssize_t bma250_fast_calibration_y_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-
-
 	struct i2c_client *client = to_i2c_client(dev);
 	struct bma250_data *bma250 = i2c_get_clientdata(client);
 #ifdef CONFIG_MACH_LGE
@@ -1392,14 +1391,12 @@ static ssize_t bma250_fast_calibration_y_show(struct device *dev,
 
 	return sprintf(buf, "%d\n", atomic_read(&bma250->fast_calib_y_rslt));	
 
-#if 0
+#else
 	if (bma250_get_offset_target_y(bma250->bma250_client, &data) < 0)
 		return sprintf(buf, "Read error\n");
 
 	return sprintf(buf, "%d\n", data);
 #endif
-#endif
-
 }
 
 static ssize_t bma250_fast_calibration_y_store(struct device *dev,
@@ -1502,8 +1499,6 @@ static ssize_t bma250_fast_calibration_y_store(struct device *dev,
 static ssize_t bma250_fast_calibration_z_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-
-
 	struct i2c_client *client = to_i2c_client(dev);
 	struct bma250_data *bma250 = i2c_get_clientdata(client);
 
@@ -1512,12 +1507,11 @@ static ssize_t bma250_fast_calibration_z_show(struct device *dev,
 * sensor SURV shake detection" 
 */
 	return sprintf(buf, "%d\n", atomic_read(&bma250->fast_calib_z_rslt));	
-#if 0
+#else
 	if (bma250_get_offset_target_z(bma250->bma250_client, &data) < 0)
 		return sprintf(buf, "Read error\n");
 
 	return sprintf(buf, "%d\n", data);
-#endif
 #endif
 }
 
