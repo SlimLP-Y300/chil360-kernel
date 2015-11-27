@@ -29,8 +29,8 @@
 #include <linux/input/ltr502.h>
 #endif
 
-#if defined (CONFIG_I2C) && defined(CONFIG_INPUT_LTR558_I6)
-#include <linux/i2c/ltr558_d9.h>
+#if defined (CONFIG_I2C) && defined(CONFIG_INPUT_LTR558)
+#include <linux/input/ltr558.h>
 #endif
 
 #ifdef CONFIG_SENSORS_AK8975

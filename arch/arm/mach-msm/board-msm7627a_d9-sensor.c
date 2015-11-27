@@ -29,8 +29,8 @@
 #include <linux/input/ltr502.h>
 #endif
 
-#if defined (CONFIG_I2C) && defined(CONFIG_INPUT_LTR558_D9)
-#include <linux/i2c/ltr558_d9.h>
+#if defined (CONFIG_I2C) && defined(CONFIG_INPUT_LTR558)
+#include <linux/input/ltr558.h>
 #endif
 
 #ifdef CONFIG_SENSORS_AK8975
@@ -273,7 +273,7 @@ static int ltr502_light_gpio_setup(void) {
 }
 #endif
 
-#if defined (CONFIG_I2C) && defined(CONFIG_INPUT_LTR558_D9)
+#if defined (CONFIG_I2C) && defined(CONFIG_INPUT_LTR558)
 #ifndef LTR508_INT_GPIO
 #define LTR508_INT_GPIO  17//112
 #endif
@@ -451,7 +451,7 @@ void __init msm7627a_sensor_init(void)
 	}
 #endif
 
-#ifdef CONFIG_INPUT_LTR558_D9
+#ifdef CONFIG_INPUT_LTR558
 	printk("i2c_register_board_info LTR558 weiqingdan\n");
 	i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
 				ltr558_light_i2c_info,

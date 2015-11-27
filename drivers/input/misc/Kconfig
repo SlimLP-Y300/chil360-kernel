@@ -676,11 +676,11 @@ config INPUT_LTR502
 	help
 	  Driver for LTR502 light/proximity sensor.
 
-config INPUT_LTR558_D9
+config INPUT_LTR558
 	tristate "LTR558 light/proximity sensor support"
 	depends on I2C
 	default n
 	help
-	  Driver for D9 LTR558 light/proximity sensor.
+	  Driver for LTR558 light/proximity sensor.
 
 endif
