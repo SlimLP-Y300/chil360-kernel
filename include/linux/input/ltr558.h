@@ -66,8 +66,10 @@ struct ltr558_platform_data {
 #define ALS_RANGE1_320			1
 #define ALS_RANGE2_64K			2
 
-#define PS_DETECTED_THRES		0x00E0
-#define PS_UNDETECTED_THRES		0x0028
+//11-bit effective resolution    0--2047
+#define PS_DETECTED_THRES		0x00A0
+#define PS_UNDETECTED_THRES		0x0078
+#define PS_CALI_DET_DISPERSION  35
 
 /* Power On response time in ms */
 #define PON_DELAY			600

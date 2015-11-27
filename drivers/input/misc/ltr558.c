@@ -34,7 +34,7 @@
 #include <linux/ctype.h>
 #include <linux/pm_runtime.h>
 #include <linux/device.h>
-#include <linux/i2c/ltr558.h>
+#include <linux/input/ltr558.h>
 #include <linux/irq.h>
 
 #define LTR558_DRV_NAME		"ltr558"
@@ -49,6 +49,9 @@
 #define STATE_CHANGED_PS_ON	(1 << 2)
 #define STATE_CHANGED_PS_OFF	(1 << 3)
 #define STATE_CHANGED_ERROR	(1 << 4)
+
+static int ps_detected_threshold = PS_DETECTED_THRES;
+static int ps_undetected_threshold = PS_UNDETECTED_THRES;
 
 static int ltr558_device_init(void);
 
@@ -94,7 +97,7 @@ static  struct ltr558_reg reg_tbl[] = {
 		.name = "PS_CONTR",
 		.addr = 0x81,
 		.defval = 0x00,
-		.curval = 0x03,
+		.curval = 0xB3,
 	},
 	{
 		.name = "ALS_PS_STATUS",
@@ -160,7 +163,7 @@ static  struct ltr558_reg reg_tbl[] = {
 		.name = "ALS_THRES_LOW",
 		.addr = 0x99,
 		.defval = 0x0000,
-		.curval = 0x0000,
+		.curval = 0x0001,
 	},
 	{
 		.name = "ALS_THRES_UP",
@@ -425,17 +428,17 @@ static void ltr558_work_func(struct work_struct *work)
 		if (g_ltr558_data->ps_state == 2)
 			ltr558_i2c_write_reg(LTR558_INTERRUPT_PERSIST, 0x13);
 
-		if ((tmp_data >= PS_DETECTED_THRES) && (g_ltr558_data->ps_state < 4)) {
+		if ((tmp_data >= ps_detected_threshold) && (g_ltr558_data->ps_state < 4)) {
 			tmp_data = g_ltr558_data->ps_state;
 			g_ltr558_data->ps_state = 1;
 			g_ltr558_data->mag ^= 0x06;
 			g_ltr558_data->ps_state = g_ltr558_data->mag & 0x0c;
-			ltr558_set_ps_threshold(LTR558_PS_THRES_LOW_0, PS_UNDETECTED_THRES);
+			ltr558_set_ps_threshold(LTR558_PS_THRES_LOW_0, ps_undetected_threshold);
 			ltr558_set_ps_threshold(LTR558_PS_THRES_UP_0, 0x07ff);
-		} else if (((tmp_data <= PS_UNDETECTED_THRES) && (g_ltr558_data->ps_state > 2)) ||
+		} else if (((tmp_data <= ps_undetected_threshold) && (g_ltr558_data->ps_state > 2)) ||
 				(g_ltr558_data->ps_state == 2)) {
 			ltr558_set_ps_threshold(LTR558_PS_THRES_LOW_0, 0);
-			ltr558_set_ps_threshold(LTR558_PS_THRES_UP_0, PS_DETECTED_THRES);
+			ltr558_set_ps_threshold(LTR558_PS_THRES_UP_0, ps_detected_threshold);
 			g_ltr558_data->mag ^= 0x01;
 			g_ltr558_data->ps_state = g_ltr558_data->mag & 0x01;
 		} else {
@@ -445,7 +448,7 @@ static void ltr558_work_func(struct work_struct *work)
 		if (ps_changed) {
 			input_report_abs(g_ltr558_data->input,
 					ABS_DISTANCE,
-					g_ltr558_data->ps_state);
+					g_ltr558_data->ps_state > 2 ? 0 : 5);
 			input_sync(g_ltr558_data->input);
 		}
 	}
@@ -794,7 +797,7 @@ int ltr558_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	g_ltr558_data->input->absbit[0] = BIT_MASK(ABS_DISTANCE);
 	//g_ltr558_data->input->evbit[1] = BIT_MASK(EV_ABS);
 	g_ltr558_data->input->absbit[1] = BIT_MASK(ABS_MISC);
-	input_set_abs_params(g_ltr558_data->input, ABS_DISTANCE, 0, 255, 0, 0);
+	input_set_abs_params(g_ltr558_data->input, ABS_DISTANCE, 0, 2047, 0, 0);
 	input_set_abs_params(g_ltr558_data->input, ABS_MISC, 0, 10000, 0, 0);
 
 	if (input_register_device(g_ltr558_data->input))
@@ -865,7 +868,6 @@ static struct i2c_driver ltr558_driver = {
 	},
 	.probe = ltr558_probe,
 	.remove = ltr558_remove,
-	.id_table = ltr558_id,
 	.shutdown = ltr558_shutdown,
 	.id_table = ltr558_id,
 };
