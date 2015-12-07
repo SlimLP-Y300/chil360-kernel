@@ -4161,22 +4161,29 @@ int msm_camera_drv_start(struct platform_device *dev,
 #ifdef CONFIG_HUAWEI_CAMERA
     	sinfo = dev->dev.platform_data;
         camera_num = sinfo->slave_sensor;
-#endif
-
 	CDBG("%s: setting camera node %d\n", __func__, camera_num);
 	rc = msm_device_init(pmsm, sync, camera_num);
+#else
+	CDBG("%s: setting camera node %d\n", __func__, camera_node);
+	rc = msm_device_init(pmsm, sync, camera_node);
+#endif
 	if (rc < 0) {
 		msm_sync_destroy(sync);
 		kfree(pmsm);
 		return rc;
 	}
-
+#ifdef CONFIG_HUAWEI_CAMERA
 	camera_type[camera_num] = sync->sctrl.s_camera_type;
 	sensor_mount_angle[camera_num] = sync->sctrl.s_mount_angle;
 	camera_node_succee[camera_num] = 1;
 	camera_node++;
 	CDBG("num:%d, id:%d, type:%d, mount_angle:%d\n", 
 		camera_node, camera_num, camera_type[camera_num], sensor_mount_angle[camera_num]);
+#else
+	camera_type[camera_node] = sync->sctrl.s_camera_type;
+	sensor_mount_angle[camera_node] = sync->sctrl.s_mount_angle;
+	camera_node++;
+#endif
 	list_add(&sync->list, &msm_sensors);
 	return rc;
 }

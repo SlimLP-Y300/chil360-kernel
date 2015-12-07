@@ -24,9 +24,9 @@
 #include <mach/gpio.h>
 
 #ifdef CONFIG_HUAWEI_KERNEL
-
 #include <linux/mfd/pmic8058.h>
 #include <linux/gpio.h>
+#endif
 
 #ifdef CONFIG_HUAWEI_EVALUATE_POWER_CONSUMPTION 
 #include <mach/msm_battery.h>
@@ -40,6 +40,8 @@ struct i2c_client *sx150x_client;
 #define CAMERA_LED_TORCH_MIDDLE_MA 100
 #define CAMERA_LED_TORCH_HIGH_MA   150
 #define PM8058_GPIO_PM_TO_SYS(pm_gpio)     (pm_gpio + NR_GPIO_IRQS)*/
+
+#ifdef CONFIG_HUAWEI_KERNEL
 static struct  pm_gpio camera_flash = {
 		.direction      = PM_GPIO_DIR_OUT,
 		.output_buffer  = PM_GPIO_OUT_BUF_CMOS,
@@ -51,6 +53,7 @@ static struct  pm_gpio camera_flash = {
 		.inv_int_pol 	= 1,
 	};
 #endif
+
 struct timer_list timer_flash;
 static struct msm_camera_sensor_info *sensor_data;
 enum msm_cam_flash_stat{
@@ -535,6 +538,9 @@ error:
 	return rc;
 }
 
+/*description:pwm camera flash*/
+static struct pwm_device *flash_pwm = NULL;
+
 static int msm_camera_flash_pwm(
 	struct msm_camera_sensor_flash_pwm *pwm,
 	unsigned led_state)
@@ -542,12 +548,6 @@ static int msm_camera_flash_pwm(
 	int rc = 0;
 	int PWM_PERIOD = USEC_PER_SEC / pwm->freq;
 
-	/*description:pwm camera flash*/
-	#ifdef CONFIG_HUAWEI_KERNEL
-	static struct pwm_device *flash_pwm = NULL;
-	#else 
-	static struct pwm_device *flash_pwm;
-	#endif
 	/*If it is the first time to enter the function*/
 	if (!flash_pwm) {
 		#ifdef CONFIG_HUAWEI_KERNEL

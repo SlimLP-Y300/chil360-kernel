@@ -2494,10 +2494,10 @@ static long msm_ioctl_server(struct file *file, void *fh,
 				kfree(k_isp_event);
 				rc = -EINVAL;
 				mutex_unlock(&g_server_dev.server_queue_lock);
-				break;
+				return rc;
 			}
 			kfree(k_isp_event->isp_data.ctrl.value);
-		}
+		}		
 		if (copy_to_user((void __user *)ioctl_ptr->ioctl_ptr,
 							  &u_isp_event,
 				sizeof(struct msm_isp_event_ctrl))) {
@@ -3334,8 +3334,10 @@ static struct v4l2_subdev *msm_eeprom_probe(
 
 	D("%s called\n", __func__);
 
-	if (!eeprom_info)
-		goto probe_fail;
+	if (!eeprom_info) {
+		pr_err("%s: FAIL! (eeprom_info = NULL)\n", __func__);
+		return NULL;
+	}
 
 	adapter = i2c_get_adapter(eeprom_info->bus_id);
 	if (!adapter)

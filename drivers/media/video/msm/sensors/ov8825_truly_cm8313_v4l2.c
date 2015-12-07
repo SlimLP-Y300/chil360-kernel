@@ -1156,7 +1156,7 @@ int32_t ov8825_truly_cm8313_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 	static unsigned short af_reg_l;
 	static unsigned short af_reg_h;
 	int af_step_pos;
-	CDBG("8825 truly cm7055sensor setting in, update_type:0x%x, res:0x%x\r\n",update_type, res);
+	CDBG("%s: in, update_type:0x%x, res:0x%x\r\n", __func__, update_type, res);
 
 	if(update_type == MSM_SENSOR_UPDATE_PERIODIC)
 	{

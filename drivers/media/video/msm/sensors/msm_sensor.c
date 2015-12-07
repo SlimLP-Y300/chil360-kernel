@@ -666,7 +666,7 @@ int32_t msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
     }
 	/* power up one time in standby mode */
     if((false == data->standby_is_supported) 
-        || (0 == strcmp(data->sensor_name, ""))
+        || (data->sensor_name[0] == 0)
         || (false == standby_mode))
     {
     	rc = msm_camera_config_vreg(&s_ctrl->sensor_i2c_client->client->dev,
@@ -751,7 +751,7 @@ int32_t msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	    cam_clk_info, &s_ctrl->cam_clk, ARRAY_SIZE(cam_clk_info), 0);
 	/* power down one time in standby mode */
     if((false == data->standby_is_supported) 
-        || (0 == strcmp(data->sensor_name, ""))
+        || (data->sensor_name[0] == 0)
         || (false == standby_mode))
     {
     	msm_camera_enable_vreg(&s_ctrl->sensor_i2c_client->client->dev,
@@ -783,7 +783,7 @@ int32_t msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
-	CDBG("msm_sensor id: %d\n", chipid);
+	CDBG("msm_sensor id: 0x%x\n", chipid);
 	if (chipid != s_ctrl->sensor_id_info->sensor_id) {
 		pr_err("msm_sensor_match_id chip id doesnot match\n");
 		return -ENODEV;
@@ -870,12 +870,13 @@ int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 	*	actuator is registerd in msm_sensor_register,and actuator is related to module
 	*	so should make sure of module info before msm_sensor_register
 	*******************************************************************/
-	if(s_ctrl->func_tbl->sensor_model_match)
+	if (s_ctrl->func_tbl->sensor_model_match) {
 		s_ctrl->func_tbl->sensor_model_match(s_ctrl);
-	if(s_ctrl->sensor_name)
-		strncpy((char *)s_ctrl->sensordata->sensor_name, s_ctrl->sensor_name, CAMERA_NAME_LEN -1);
-	printk("the name for project menu is %s\n", s_ctrl->sensordata->sensor_name);
-	
+		if (s_ctrl->sensor_name[0])
+			strncpy((char *)s_ctrl->sensordata->sensor_name, s_ctrl->sensor_name, CAMERA_NAME_LEN -1);
+	}
+	printk("%s: the name for project menu is \"%s\"\n", __func__, s_ctrl->sensordata->sensor_name);
+
 #ifdef CONFIG_HUAWEI_HW_DEV_DCT
 	/* detect current device successful, set the flag as present */
 	switch(s_ctrl->sensordata->camera_type)
