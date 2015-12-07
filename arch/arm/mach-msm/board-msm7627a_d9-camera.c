@@ -1374,7 +1374,8 @@ static void skud_camera_gpio_cfg(void)
 static void d9_camera_gpio_cfg(void)
 {
 	int rc = 0;
-
+#ifdef CONFIG_OV8825_TRULY_CM8313
+	pr_info("%s: OV8825_TRULY_CM8313\n", __func__);
 	rc = gpio_request(GPIO_SKU3_CAM_5MP_SHDN_N, "ov8825_truly_cm8313");
 	if (rc < 0)
 		pr_err("%s: gpio_request ov8825_truly_cm8313 sensor_pwd: %d failed!",
@@ -1414,6 +1415,9 @@ static void d9_camera_gpio_cfg(void)
 	if (rc < 0)
 		pr_err("%s: unable to set gpio: %d direction for ov8825_truly_cm8313 camera\n",
 			__func__, GPIO_SKU3_CAM_5MP_CAMIF_RESET);
+#endif
+#ifdef CONFIG_GC0339
+	pr_info("%s: GC0339\n", __func__);
 	/*GC0039 GPIO Config*/
 	rc = gpio_request(GPIO_SKU1_CAM_VGA_SHDN, "gc0339");
 		if (rc < 0)
@@ -1446,7 +1450,7 @@ static void d9_camera_gpio_cfg(void)
 			gpio_free(GPIO_SKU1_CAM_VGA_RESET_N);
 		}
 		gpio_direction_output(GPIO_SKU1_CAM_VGA_RESET_N, 1);
-
+#endif
 
 }
 
@@ -1926,6 +1930,7 @@ static struct i2c_board_info cam_exp_i2c_info[] __initdata = {
 
 static void __init register_i2c_devices(void)
 {
+	pr_info("%s: register Semtech SX150x I2C GPIO expander\n", __func__);
 	i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID,
 				cam_exp_i2c_info,
 				ARRAY_SIZE(cam_exp_i2c_info));

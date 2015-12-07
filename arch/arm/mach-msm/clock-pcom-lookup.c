@@ -321,10 +321,22 @@ static struct clk_lookup msm_cmn_clk_7625a_7627a[] __initdata = {
 	CLK_LOOKUP("cam_clk",		cam_m_clk.c,	"0-0010"),
 	CLK_LOOKUP("cam_clk",		cam_m_clk.c,	"0-0078"),
 	CLK_LOOKUP("cam_clk",		cam_m_clk.c,	"0-006c"),
-	CLK_LOOKUP("cam_clk",		cam_m_clk.c,	"0-000d"),
+#ifdef CONFIG_JSR_KERNEL
+	CLK_LOOKUP("cam_clk",		cam_m_clk.c,	"0-000d"), //mclk for ov8825_truly_cm8313
 	CLK_LOOKUP("cam_clk",		cam_m_clk.c,	"0-0042"),
     CLK_LOOKUP("cam_clk",		cam_m_clk.c,	"0-0064"),
 	CLK_LOOKUP("cam_clk",		cam_m_clk.c,	"0-0060"),
+#else
+	/*the cam_clk is for s5k4e1, whose I2C addr is 0x6E*/
+	CLK_LOOKUP("cam_clk",		cam_m_clk.c,	"0-006e"),
+	CLK_LOOKUP("cam_clk",		cam_m_clk.c,	"0-007a"), //mclk for mt9v113
+	CLK_LOOKUP("cam_clk",		cam_m_clk.c,	"0-0042"), //mclk for gc0313
+	CLK_LOOKUP("cam_clk",		cam_m_clk.c,	"0-0037"), //mclk for bf3905
+	CLK_LOOKUP("cam_clk",		cam_m_clk.c,	"0-000d"),
+	CLK_LOOKUP("cam_clk",		cam_m_clk.c,	"0-005a"),
+	CLK_LOOKUP("cam_clk",		cam_m_clk.c,	"0-006f"),//mclck for s5k3h2
+	CLK_LOOKUP("cam_clk",		cam_m_clk.c,	"0-0040"),//mclck for hi542
+#endif
 	CLK_LOOKUP("csi_clk",		csi0_clk.c,	"msm_camera_ov9726.0"),
 	CLK_LOOKUP("csi_pclk",		csi0_p_clk.c,	"msm_camera_ov9726.0"),
 	CLK_LOOKUP("csi_vfe_clk",	csi0_vfe_clk.c,	"msm_camera_ov9726.0"),
@@ -342,6 +354,11 @@ static struct clk_lookup msm_cmn_clk_7625a_7627a[] __initdata = {
 	CLK_LOOKUP("csi_clk",		csi0_clk.c,	"msm_camera_mt9v113.0"),
 	CLK_LOOKUP("csi_pclk",		csi0_p_clk.c,	"msm_camera_mt9v113.0"),
 	CLK_LOOKUP("csi_vfe_clk",	csi0_vfe_clk.c,	"msm_camera_mt9v113.0"),
+#endif
+#ifdef CONFIG_JSR_KERNEL
+	CLK_LOOKUP("csi_clk",		csi0_clk.c,	"msm_camera_ov7695.0"),
+	CLK_LOOKUP("csi_pclk",		csi0_p_clk.c,	"msm_camera_ov7695.0"),
+	CLK_LOOKUP("csi_vfe_clk",	csi0_vfe_clk.c,	"msm_camera_ov7695.0"),
 #endif 
 	CLK_LOOKUP("csi_clk",		csi1_clk.c,	NULL),
 	CLK_LOOKUP("csi_pclk",		csi1_p_clk.c,	NULL),
