@@ -80,6 +80,16 @@ static void himax_ts_late_resume(struct early_suspend *h);
 static uint32_t himax_Multitouch_gpio_initialized = 0;	
 #define HIMAX_TP_RESET_GPIO  26
 
+static int fw_update_retries = 1;
+
+static int __init fw_update_retries_setup(char *str)
+{
+	get_option(&str, &fw_update_retries);
+	return 0;
+}
+early_param("ts_fw", fw_update_retries_setup);
+
+
 static void himax_ts_reset_ic(void)
 {
    int rc = 0; 
@@ -1001,7 +1011,7 @@ int ctpm_FW_upgrade_with_i_file(struct himax_ts_data *ts)
 	printk("linxc ctpm_FW_upgrade_with_i_file\n");
 
 	//Try  Times
-	for (j = 0; j < 5; j++) 
+	for (j = 0; j < fw_update_retries; j++) 
 	{
 		fileLength = fullFileLength - 2;
 
@@ -1253,9 +1263,13 @@ static int himax_ts_probe(struct i2c_client *client, const struct i2c_device_id 
     himax_ts_reset_ic();		
 
 #ifdef SUPPORT_HIMAX_TP_FW_UPDATE
-	if(is_TP_Updated == 0)
+	if(is_TP_Updated == 0 && fw_update_retries >= 0)
 	{
-		if(ctpm_read_FW_ver(ts) == 0)   
+		ret = ctpm_read_FW_ver(ts);
+		if (fw_update_retries == 0) {
+			printk("JSR TP upgrade SKIP\n");
+		} else
+		if (ret == 0)
 		{	//if not mach 
 			if(ctpm_FW_upgrade_with_i_file(ts) == 0)	//update
 				printk("JSR TP upgrade error, line: %d\n", __LINE__);
