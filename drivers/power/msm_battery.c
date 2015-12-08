@@ -188,12 +188,14 @@ enum chg_battery_status_type {
 	BATTERY_STATUS_REMOVED,		/* on v2.2 only */
 	BATTERY_STATUS_INVALID_v1 = BATTERY_STATUS_REMOVED,
 	/* Invalid battery status.    */
-	BATTERY_STATUS_INVALID
+	BATTERY_STATUS_INVALID,
+	/* Fake status for legacy rpc */
+	BATTERY_STATUS_DISCHARGING,
 };
 enum chg_battery_status_type_legacy {
 	L_BATTERY_STATUS_GOOD,
 	L_BATTERY_STATUS_OVER_TEMPERATURE,   /* BATTERY_STATUS_BAD_TEMP */
-	L_BATTERY_STATUS_NULL                /* BATTERY_STATUS_REMOVED */
+	L_BATTERY_STATUS_NULL                /* BATTERY_STATUS_INVALID */
 }; 
 
 /*
@@ -573,25 +575,29 @@ static void msm_batt_update_psy_status(void)
 	switch (reply_charger.charger_hardware) {
 		case L_CHARGER_TYPE_USB_PC:
 			v1p->charger_type = CHARGER_TYPE_USB_PC;
+			if (!reply_charger.is_charging)
+				v1p->charger_type = CHARGER_TYPE_NONE;
 			break;
 		case L_CHARGER_TYPE_USB_WALL:
 			v1p->charger_type = CHARGER_TYPE_USB_WALL;
 			break;
 		case L_CHARGER_TYPE_USB_UNKNOWN:
-			v1p->charger_type = CHARGER_TYPE_USB_PC;
+			v1p->charger_type = CHARGER_TYPE_NONE;
 			break;
 		default:
 			v1p->charger_type = CHARGER_TYPE_NONE;
 	}
 	switch (reply_charger.battery_status) {
 		case L_BATTERY_STATUS_GOOD:
-			v1p->battery_status = CHARGER_STATUS_GOOD;
+			v1p->battery_status = BATTERY_STATUS_GOOD;
+			if (!reply_charger.is_charging)
+				v1p->battery_status = BATTERY_STATUS_DISCHARGING;
 			break;
 		case L_BATTERY_STATUS_OVER_TEMPERATURE:
 			v1p->battery_status = BATTERY_STATUS_BAD_TEMP;
 			break;
 		default:
-			v1p->battery_status = BATTERY_STATUS_REMOVED;
+			v1p->battery_status = BATTERY_STATUS_INVALID;
 	}
 	v1p->battery_voltage  = reply_charger.battery_voltage & 0xFFFF;
 	v1p->battery_temp     = reply_charger.battery_temp * 10;
