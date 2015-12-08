@@ -205,8 +205,10 @@ int msm_read_nv(unsigned int nv_item, void *buf)
 	if (NULL == buf)
 		return ret;
 	ret = msm_proc_comm(PCOM_NV_READ, &data1, &data2);
-	if (ret)
+	if (ret) {
+		pr_err("%s: Can't get MAC from NV (ret = %d)\n", __func__, ret);
 		return ret;
+	}
 	switch (nv_item)
 	{
 	case 4678:
@@ -221,6 +223,8 @@ int msm_read_nv(unsigned int nv_item, void *buf)
 				*dest++ = (unsigned char)(data1 >> ((i-4)*8));
 			}
 		}
+		pr_info("%s: MAC from NV: %02X:%02X:%02X:%02X:%02X:%02X\n", __func__,
+			dest[0], dest[1], dest[2], dest[3], dest[4], dest[5]);
 		break;
 	default:
 		printk(KERN_ERR "%s:nv item %d is not supported now\n",__func__,nv_item);
@@ -238,11 +242,20 @@ int read_nv(unsigned int nv_item, void *buf)
 	switch (nv_item)
 	{
 		case 4678:
+			if (memcmp(wlan_mac_addr, "\0\0\0\0\0\0", sizeof(wlan_mac_addr)) == 0) {
+				ret = msm_read_nv(nv_item, wlan_mac_addr);
+				if (ret) {
+					printk(KERN_ERR "%s:nv item %d is not supported now\n",__func__,nv_item);
+					return ret;
+				}
+			}
 			if (memcmp(wlan_mac_addr,"\0\0\0\0\0\0",sizeof(wlan_mac_addr)) != 0) {
 				memcpy(buf,wlan_mac_addr,sizeof(wlan_mac_addr));
-				ret = 0;
+				return 0;
 			}
+			ret = -EIO;
 			break;
+
 		default:
 			printk(KERN_ERR "%s:nv item %d is not supported now\n",__func__,nv_item);
 			break;
