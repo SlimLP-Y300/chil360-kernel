@@ -55,6 +55,10 @@
 #include <mach/rpc_server_handset.h>
 #include <mach/socinfo.h>
 #include <mach/oem_rapi_client.h>
+#ifdef CONFIG_ANDROID_PERSISTENT_RAM
+#include <linux/persistent_ram.h>
+#endif
+
 #include "board-msm7x27a-regulator.h"
 #include "devices.h"
 #include "devices-msm7x2xa.h"
@@ -787,6 +791,73 @@ static struct memtype_reserve msm7627a_reserve_table[] __initdata = {
 	},
 };
 
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+static struct platform_device ram_console_device = {
+	.name = "ram_console",
+	.id = -1,
+};
+#endif
+
+#ifdef CONFIG_ANDROID_PERSISTENT_RAM
+static struct persistent_ram_descriptor pram_descs[] __initdata = {
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+	{
+		.name = "ram_console",
+		.size = 0,
+	},
+#endif
+};
+
+static struct persistent_ram persist_ram __initdata = {
+	.descs = pram_descs,
+	.num_descs = ARRAY_SIZE(pram_descs),
+	.start = 0,
+	.size = 0
+};
+
+static int __init add_persist_ram_devices(void)
+{
+	int ret, i;
+	struct memtype_reserve * mt = NULL;
+	phys_addr_t base;
+	int size;
+	int pram_size = get_persist_ram_size(0);
+
+	base = get_persist_ram_info(0, &size);
+	if (!pram_size) {
+		pr_info("%s: pram_size=0x%x, base=0x%lx \n", __func__, pram_size, (long)base);
+		return 0;
+	}
+	if (!base) {
+		mt = &reserve_info->memtype_reserve_table[MEMTYPE_EBI1];
+		if (!mt->start) {
+			pr_err("%s: EBI1 addr = NULL \n", __func__);
+			return -ENODEV;
+		}
+		size = pram_size;
+		base = mt->start - size - PAGE_SIZE;
+	}
+	if (size <= 0)
+		return -EINVAL;
+
+	persist_ram.start = base;
+	persist_ram.size = size;	
+	for (i=0; i < persist_ram.num_descs; i++) {
+		persist_ram.descs[i].size = (phys_addr_t)(size / persist_ram.num_descs);
+	}
+	pr_info("PERSIST RAM CONSOLE START ADDR : 0x%x\n", persist_ram.start);
+	if (!mt)
+		persist_ram.start++;
+	ret = persistent_ram_early_init(&persist_ram);
+	if (!mt)
+		persist_ram.start--;
+	if (ret)
+		pr_err("%s: failed to initialize persistent ram at 0x%x \n", __func__, persist_ram.start);
+	return ret;
+}
+
+#endif
+
 static void __init size_ion_devices(void)
 {
 #ifdef CONFIG_MSM_MULTIMEDIA_USE_ION
@@ -829,6 +900,9 @@ static void __init msm7627a_reserve(void)
 	reserve_info = &msm7627a_reserve_info;    
 	memblock_remove(MSM8625_WARM_BOOT_PHYS, SZ_32);
 	memblock_remove(BOOTLOADER_BASE_ADDR, msm_ion_audio_size);
+#ifdef CONFIG_ANDROID_PERSISTENT_RAM
+	add_persist_ram_devices();
+#endif
 	msm_reserve();
 #ifdef CONFIG_CMA
 	dma_declare_contiguous(
@@ -846,6 +920,13 @@ static void __init msm8625_reserve(void)
 	memblock_remove(MSM8625_CPU_PHYS, SZ_8);
 	memblock_remove(MSM8625_NON_CACHE_MEM, SZ_2K);
 	msm7627a_reserve();
+}
+
+static void __init add_persistent_device(void)
+{
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+	platform_device_register(&ram_console_device);
+#endif
 }
 
 static void msmqrd_adsp_add_pdev(void)
@@ -1073,6 +1154,8 @@ static void __init msm_qrd_init(void)
 	qrd7627a_add_io_devices();
 	msm7x25a_kgsl_3d0_init();
 	msm8x25_kgsl_3d0_init();
+	
+	add_persistent_device();
 }
 
 static void __init qrd7627a_init_early(void)

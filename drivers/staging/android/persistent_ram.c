@@ -461,13 +461,14 @@ int __init persistent_ram_early_init(struct persistent_ram *ram)
 {
 	int ret;
 
-	ret = memblock_reserve(ram->start, ram->size);
-	if (ret) {
-		pr_err("Failed to reserve persistent memory from %08lx-%08lx\n",
-			(long)ram->start, (long)(ram->start + ram->size - 1));
-		return ret;
+	if ((ram->start & 1) == 0) {
+		ret = memblock_reserve(ram->start, ram->size);
+		if (ret) {
+			pr_err("Failed to reserve persistent memory from %08lx-%08lx\n",
+				(long)ram->start, (long)(ram->start + ram->size - 1));
+			return ret;
+		}
 	}
-
 	list_add_tail(&ram->node, &persistent_ram_list);
 
 	pr_info("Initialized persistent memory from %08lx-%08lx\n",
