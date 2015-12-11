@@ -23,7 +23,7 @@
 #include "board-msm7627a.h"
 #include <linux/hardware_self_adapt.h>
 
-#ifdef CONFIG_HUAWEI_WIFI_SDCC
+#if defined (CONFIG_HUAWEI_WIFI_SDCC) || defined (CONFIG_JSR_WIFI_SDCC)
 #include <linux/wifi_tiwlan.h>
 #include <linux/skbuff.h>
 #endif
@@ -54,7 +54,7 @@ struct sdcc_gpio {
  * Qualcomm requests to disable the internal pull up when have external pull up.
  * Change pull up to no pull.
  */
-#ifdef CONFIG_HUAWEI_KERNEL
+#if defined(CONFIG_HUAWEI_KERNEL) || defined (CONFIG_JSR_KERNEL)
 static struct msm_gpio sdc1_cfg_data[] = {
     /* decrease sdcard drive current */
 	{GPIO_CFG(51, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_10MA),
@@ -122,7 +122,7 @@ static struct msm_gpio sdc2_sleep_cfg_data[] = {
  * Qualcomm requests to disable the internal pull up when have external pull up.
  * Change pull up to no pull.
  */
-#ifdef CONFIG_HUAWEI_KERNEL
+#if defined(CONFIG_HUAWEI_KERNEL) || defined (CONFIG_JSR_KERNEL)
 static struct msm_gpio sdc3_cfg_data[] = {
 	{GPIO_CFG(88, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_8MA),
 								"sdc3_clk"},
@@ -217,6 +217,10 @@ static void gpio_sdc1_config(void)
 					|| machine_is_msm7627a_qrd3()
 					|| machine_is_msm8625_qrd7())
 		gpio_sdc1_hw_det = 42;
+#ifdef CONFIG_JSR_KERNEL
+	else if (machine_is_msm8625q_skue())
+		gpio_sdc1_hw_det = 112;
+#endif
 }
 
 static struct regulator *sdcc_vreg_data[MAX_SDCC_CONTROLLER];
@@ -354,7 +358,7 @@ static struct mmc_platform_data sdc1_plat_data = {
 	.status      = msm7627a_sdcc_slot_status,
 	.irq_flags   = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 /*disable pm runtime of sd card*/
-#ifdef CONFIG_HUAWEI_KERNEL
+#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
     .disable_runtime_pm = true
 #endif
 };
@@ -416,7 +420,7 @@ static struct mmc_platform_data sdc3_plat_data = {
 	.msmsdcc_fmax   = 49152000,
 	.nonremovable   = 1,
 	/*prevent emmc from stepping into pm runtime sleep*/
-#ifdef CONFIG_HUAWEI_KERNEL
+#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
 	.disable_runtime_pm = true,
 #endif
 };
@@ -434,7 +438,7 @@ static struct mmc_platform_data sdc4_plat_data = {
 };
 #endif
 
-#ifdef CONFIG_HUAWEI_WIFI_SDCC
+#if defined(CONFIG_HUAWEI_WIFI_SDCC) || defined(CONFIG_JSR_WIFI_SDCC) 
 #define TAG_BCM			"BCM_4330"
 
 #define PREALLOC_WLAN_NUMBER_OF_SECTIONS	4
@@ -646,7 +650,7 @@ void __init msm7627a_init_mmc(void)
 	/* There is no eMMC on SDC3 for QRD3 based devices */
 	if (!(machine_is_msm7627a_qrd3() || machine_is_msm8625_qrd7())) {
 /* "S3" is always on for emmc,so don't configure the "emmc" in the linux */
-#ifdef CONFIG_HUAWEI_KERNEL
+#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
     if (mmc_regulator_init(3, "smps3", 1800000))
         return;       
 #else
@@ -661,18 +665,25 @@ void __init msm7627a_init_mmc(void)
 	gpio_sdc1_config();
 	if (mmc_regulator_init(1, "mmc", 2850000))
 		return;
+#ifdef CONFIG_JSR_KERNEL
+	if (!(machine_is_msm8625_qrd5()) && !(machine_is_msm7x27a_qrd5a()) && !(machine_is_msm8625q_skud()))
+		sdc1_plat_data.status_irq = MSM_GPIO_TO_INT(gpio_sdc1_hw_det);
+	else
+		sdc1_plat_data.status = NULL;
+#else
 	/* 8x25 EVT do not use hw detector */
 	if (!(machine_is_msm8625_evt()))
 		sdc1_plat_data.status_irq = MSM_GPIO_TO_INT(gpio_sdc1_hw_det);
 	if (machine_is_msm8625_evt())
 		sdc1_plat_data.status = NULL;
+#endif
 
 	msm_add_sdcc(1, &sdc1_plat_data);
 #endif
 	/* SDIO WLAN slot */
 #ifdef CONFIG_MMC_MSM_SDC2_SUPPORT
 	/* WLAN use S3 as power supply but not mmc */
-#ifdef CONFIG_HUAWEI_KERNEL
+#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
 	if (mmc_regulator_init(2, "smps3", 1800000))
 		return;
 #else

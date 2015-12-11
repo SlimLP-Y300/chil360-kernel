@@ -61,16 +61,15 @@
 #include "msm_sdcc.h"
 #include "msm_sdcc_dml.h"
 #include <linux/hardware_self_adapt.h>
-#ifdef CONFIG_HUAWEI_KERNEL
+#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
 #include <asm/mach-types.h>
-#define SDCC_SDCARD_SLOT	1
-#define SDCC_EMMC_SLOT	3
 #endif
 
 int sdcc_wifi_slot = -1;
 #define SDCC_WIFI_SLOT		(sdcc_wifi_slot)
 
-#ifdef CONFIG_HUAWEI_KERNEL
+#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
+#define SDCC_SDCARD_SLOT	1
 #define SDCC_EMMC_SLOT		3
 #define HUAWEI_SANDISK_MID 0x45
 #endif
@@ -91,7 +90,7 @@ int sdcc_wifi_slot = -1;
 #define MSM_MMC_BUS_VOTING_DELAY	200 /* msecs */
 #define INVALID_TUNING_PHASE		-1
 
-#ifdef CONFIG_HUAWEI_KERNEL
+#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
 int mmc_debug_mask = 0;
 module_param_named(debug_mask, mmc_debug_mask, int, 
 				   S_IRUGO | S_IWUSR | S_IWGRP);
@@ -518,7 +517,7 @@ msmsdcc_request_end(struct msmsdcc_host *host, struct mmc_request *mrq)
 
 	BUG_ON(host->curr.data);
 
-#ifdef CONFIG_HUAWEI_KERNEL 
+#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
     HUAWEI_DBG("HUAWEI %s: req end (CMD%u): %08x %08x %08x %08x\n",
 			mmc_hostname(host->mmc), mrq->cmd->opcode,
 			mrq->cmd->resp[0], mrq->cmd->resp[1],
@@ -2132,7 +2131,7 @@ msmsdcc_post_req(struct mmc_host *mmc, struct mmc_request *mrq, int err)
 static void
 msmsdcc_request_start(struct msmsdcc_host *host, struct mmc_request *mrq)
 {
-#ifdef CONFIG_HUAWEI_KERNEL 
+#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
     HUAWEI_DBG("HUAWEI %s: starting CMD%u arg %08x flags %08x\n",
 		 mmc_hostname(host->mmc), mrq->cmd->opcode,
 		 mrq->cmd->arg, mrq->cmd->flags);
@@ -3296,7 +3295,7 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	unsigned long flags;
 	unsigned int clock;
 
-#ifdef CONFIG_HUAWEI_KERNEL 
+#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
     HUAWEI_DBG("%s: clock %uHz busmode %u powermode %u cs %u Vdd %u "
 		"width %u timing %u\n",
 		 mmc_hostname(mmc), ios->clock, ios->bus_mode,
@@ -6089,7 +6088,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	if (plat->nonremovable)
 		mmc->caps |= MMC_CAP_NONREMOVABLE;
 	mmc->caps |= MMC_CAP_SDIO_IRQ;
-#ifdef CONFIG_HUAWEI_KERNEL
+#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
     if (4 == host->pdev_id )
 	{
         mmc->caps |= MMC_CAP_NEEDS_POLL;
@@ -6249,7 +6248,7 @@ msmsdcc_probe(struct platform_device *pdev)
 	}
 #endif
 	/*prevent emmc from stepping into pm runtime sleep*/
-#ifdef CONFIG_HUAWEI_KERNEL
+#if defined(CONFIG_HUAWEI_KERNEL) || defined(CONFIG_JSR_KERNEL)
     if(plat->disable_runtime_pm && ((SDCC_SDCARD_SLOT == host->pdev_id) || (SDCC_EMMC_SLOT == host->pdev_id)))
     {
         pm_runtime_disable(&(pdev)->dev);
@@ -6634,7 +6633,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 
 	pr_debug("%s: %s: start\n", mmc_hostname(mmc), __func__);
 	if (mmc) {
-#ifdef CONFIG_HUAWEI_WIFI_SDCC		
+#if defined(CONFIG_HUAWEI_WIFI_SDCC) || defined(CONFIG_JSR_WIFI_SDCC)
 	    if ((host->pdev_id==SDCC_WIFI_SLOT)&&(WIFI_QUALCOMM==get_hw_wifi_device_type()))
 		{			
 			host->sdcc_suspending = 0;			
@@ -6665,7 +6664,7 @@ msmsdcc_runtime_suspend(struct device *dev)
 		 */
 /* roll back xuke modification */
 		pm_runtime_get_noresume(dev);
-#ifdef CONFIG_HUAWEI_WIFI_SDCC
+#if defined(CONFIG_HUAWEI_WIFI_SDCC) || defined(CONFIG_JSR_WIFI_SDCC)
 		/* If there is pending detect work abort runtime suspend */
 		    if ((host->pdev_id==SDCC_WIFI_SLOT) && WIFI_BROADCOM==get_hw_wifi_device_type()){
 			/* If there is pending detect work abort runtime suspend */
@@ -6766,10 +6765,11 @@ msmsdcc_runtime_resume(struct device *dev)
 		 * the SDIO work will be processed.
 		 */
 		if (mmc->card && mmc_card_sdio(mmc->card)) {
-			if ((host->plat->mpm_sdiowakeup_int ||
-					host->plat->sdiowakeup_irq) &&
-					wake_lock_active(&host->sdio_wlock))
-				wake_lock_timeout(&host->sdio_wlock, 1);
+			if ((host->plat->mpm_sdiowakeup_int || host->plat->sdiowakeup_irq)) {
+				if (wake_lock_active(&host->sdio_wlock)) {
+					wake_lock_timeout(&host->sdio_wlock, 1);
+				}
+			}
 		}
 
 		wake_unlock(&host->sdio_suspend_wlock);

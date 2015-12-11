@@ -30,6 +30,11 @@ config MMC_PERF_PROFILING
 config HUAWEI_WIFI_SDCC
 	bool "Wireless extensions sdcc files"
 	default n
+
+config JSR_WIFI_SDCC
+	bool "Wireless extensions SDCC files (JSR)"
+	default n
+
 if MMC
 
 source "drivers/mmc/core/Kconfig"

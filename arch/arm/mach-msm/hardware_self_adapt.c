@@ -1418,6 +1418,10 @@ char *get_compass_gs_position_name(void)
  */
 hw_wifi_device_type get_hw_wifi_device_type(void)
 {
+#ifdef CONFIG_JSR_KERNEL
+	return WIFI_QUALCOMM;
+#endif
+#ifdef CONFIG_HUAWEI_KERNEL
   if (machine_is_msm7x27a_U8185()
     || machine_is_msm7x27a_U8661() 
     || machine_is_msm8x25_C8825D() 
@@ -1439,6 +1443,7 @@ hw_wifi_device_type get_hw_wifi_device_type(void)
   {
       return WIFI_BROADCOM;
   }
+#endif
 }
 
 /*  FUNCTION  get_touch_type
