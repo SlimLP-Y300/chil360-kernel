@@ -77,8 +77,10 @@
 #define BATTERY_CB_ID_LOW_VOL		2
 
 #ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
-#define	BATTERY_LOW		3200
-#define	BATTERY_HIGH		4200
+#define QCOM_BATTERY_LOW    3500
+#define QCOM_BATTERY_HIGH   4200
+#define BATTERY_LOW         3200
+#define BATTERY_HIGH        4200
 #else
 #define BATTERY_LOW		3200
 #define BATTERY_HIGH		4300
@@ -290,6 +292,11 @@ struct msm_battery_info {
 	u32 battery_voltage; /* in millie volts */
 	u32 battery_temp;  /* in celsius */
 
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+	u32 qcom_battery_capacity;
+	u32 qcom_battery_voltage_min;
+#endif
+
 	u32(*calculate_capacity) (u32 voltage);
 
 	s32 batt_handle;
@@ -317,6 +324,10 @@ static struct msm_battery_info msm_batt_info = {
 	.battery_level = BATTERY_LEVEL_FULL,
 	.battery_voltage = BATTERY_HIGH,
 	.batt_capacity = 100,
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+	.qcom_battery_capacity = 100,
+	.qcom_battery_voltage_min = 9999,
+#endif
 	.batt_status = POWER_SUPPLY_STATUS_DISCHARGING,
 	.batt_health = POWER_SUPPLY_HEALTH_GOOD,
 	.batt_valid  = 1,
@@ -549,7 +560,10 @@ static void msm_batt_update_psy_status(void)
 	u32	charger_type;
 	u32	battery_status;
 	u32	battery_level;
-	u32     battery_voltage;
+	u32	battery_voltage;
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+	u32	qcom_battery_capacity;
+#endif
 	u32	battery_temp;
 	struct	power_supply	*supp;
 	struct rpc_reply_batt_chg_v1 * v1p = &rep_batt_chg.v1;
@@ -601,7 +615,8 @@ static void msm_batt_update_psy_status(void)
 	}
 	v1p->battery_voltage  = reply_charger.battery_voltage & 0xFFFF;
 	v1p->battery_temp     = reply_charger.battery_temp * 10;
-	if ((reply_charger.battery_capacity & 0x7F) == 100) {
+	qcom_battery_capacity = reply_charger.battery_capacity & 0x7F;
+	if (qcom_battery_capacity == 100) {
 		v1p->battery_level = BATTERY_LEVEL_FULL;
 	} else {
 		v1p->battery_level = BATTERY_LEVEL_GOOD;
@@ -626,16 +641,19 @@ static void msm_batt_update_psy_status(void)
 	    battery_status == msm_batt_info.battery_status &&
 	    battery_level == msm_batt_info.battery_level &&
 	    battery_voltage == msm_batt_info.battery_voltage &&
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+	    qcom_battery_capacity == msm_batt_info.qcom_battery_capacity &&
+#endif
 	    battery_temp == msm_batt_info.battery_temp) {
 		/* Got unnecessary event from Modem PMIC VBATT driver.
 		 * Nothing changed in Battery or charger status.
 		 */
 		unnecessary_event_count++;
 #ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
-		pr_info("BATT: same event count = %u (%d, %d, %d) %d, %d, (%d, %d, %d)\n",
+		pr_info("BATT: same event count = %u (%d, %d, %d) %d mV, %d%%, %d, (%d, %d, %d)\n",
 			unnecessary_event_count, reply_charger.charger_status,
 			reply_charger.charger_hardware, reply_charger.battery_status,
-			battery_voltage, battery_temp,
+			battery_voltage, qcom_battery_capacity, battery_temp,
 			reply_charger.is_charging, reply_charger.is_charging_complete,
 			reply_charger.is_charging_failed);
 #else
@@ -652,7 +670,7 @@ static void msm_batt_update_psy_status(void)
 		 charger_status, reply_charger.charger_status,
 		 charger_type, reply_charger.charger_hardware,
 		 battery_status, reply_charger.battery_status,
-		 battery_level, reply_charger.battery_capacity, reply_charger.battery_capacity & 0x7F,
+		 battery_level, reply_charger.battery_capacity, qcom_battery_capacity,
 		 battery_voltage, battery_temp,
 		 reply_charger.is_charging, reply_charger.is_charging_complete,
 		 reply_charger.is_charging_failed);
@@ -809,7 +827,12 @@ static void msm_batt_update_psy_status(void)
 	msm_batt_info.battery_level 	= battery_level;
 	msm_batt_info.battery_temp 	= battery_temp;
 
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+	if (msm_batt_info.battery_voltage != battery_voltage || 
+	    msm_batt_info.qcom_battery_capacity != qcom_battery_capacity) {
+#else
 	if (msm_batt_info.battery_voltage != battery_voltage) {
+#endif
 #ifdef CONFIG_MSM_BATTERY_SHUTDOWN
 		/* Android doesn't initiate shutdown even if voltage is less
 		 * than minimum batt level if USB is connected. Hence report
@@ -825,6 +848,9 @@ static void msm_batt_update_psy_status(void)
 		}
 #endif
 		msm_batt_info.battery_voltage  	= battery_voltage;
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+		msm_batt_info.qcom_battery_capacity = qcom_battery_capacity;
+#endif
 		msm_batt_info.batt_capacity =
 			msm_batt_info.calculate_capacity(battery_voltage);
 		DBG_LIMIT("BATT: voltage = %u mV [capacity = %d%%]\n",
@@ -1373,6 +1399,25 @@ static u32 msm_batt_capacity(u32 current_voltage)
 	u32 low_voltage = msm_batt_info.voltage_min_design;
 	u32 high_voltage = msm_batt_info.voltage_max_design;
 
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+	if (msm_batt_info.batt_status != POWER_SUPPLY_STATUS_DISCHARGING &&
+	    msm_batt_info.batt_status != POWER_SUPPLY_STATUS_NOT_CHARGING) {
+		msm_batt_info.qcom_battery_voltage_min = 9999;
+	}
+	if (high_voltage == QCOM_BATTERY_HIGH) {
+		if (msm_batt_info.qcom_battery_capacity > 0) {
+			current_voltage = ((high_voltage - QCOM_BATTERY_LOW) *
+			                    msm_batt_info.qcom_battery_capacity) / 100;
+			current_voltage += QCOM_BATTERY_LOW;
+		} else
+		if (current_voltage > msm_batt_info.qcom_battery_voltage_min) {
+			current_voltage = msm_batt_info.qcom_battery_voltage_min;
+		}
+	}
+	if (current_voltage < msm_batt_info.qcom_battery_voltage_min)
+		if (current_voltage > low_voltage + 65)
+			msm_batt_info.qcom_battery_voltage_min = current_voltage;
+#endif
 	if (current_voltage <= low_voltage)
 		return 0;
 	else if (current_voltage >= high_voltage)
