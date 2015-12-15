@@ -28,8 +28,13 @@
 
 #define DEBUG_TRICOLOR_LED 0
 
+#ifdef CONFIG_JSR_KERNEL
+static int qrd5_led_flash_en1 = 32;
+static int qrd7_led_flash_en = 96;
+#else
 static int qrd5_led_flash_en1 = 13;
 static int qrd7_led_flash_en = 96;
+#endif
 
 enum tri_color_led_color {
 	LED_COLOR_RED,
@@ -63,6 +68,7 @@ struct tricolor_led_data {
 	struct led_classdev leds[4];	/* blue, green, red, flashlight */
 };
 
+#ifndef CONFIG_JSR_KERNEL
 static void call_oem_rapi_client_streaming_function(struct msm_rpc_client *client,
 						    char *input)
 {
@@ -86,6 +92,7 @@ static void call_oem_rapi_client_streaming_function(struct msm_rpc_client *clien
 		printk(KERN_ERR
 			"oem_rapi_client_streaming_function() error=%d\n", ret);
 }
+#endif
 
 
 static ssize_t led_blink_solid_show(struct device *dev,
@@ -165,7 +172,9 @@ static ssize_t led_blink_solid_store(struct device *dev,
 	}
 	tricolor_led->led_data[color] = blink;
 	spin_unlock_irqrestore(&tricolor_led->led_lock, flags);
+#ifndef CONFIG_JSR_KERNEL
 	call_oem_rapi_client_streaming_function(tricolor_led->rpc_client, (char*)&input);
+#endif
 	return size;
 }
 
@@ -221,7 +230,9 @@ static void led_brightness_set_tricolor(struct led_classdev *led_cdev,
 		}
 	}
 	spin_unlock_irqrestore(&tricolor_led->led_lock, flags);
+#ifndef CONFIG_JSR_KERNEL
 	call_oem_rapi_client_streaming_function(tricolor_led->rpc_client, (char*)&input);
+#endif
 }
 
 static void led_brightness_set_flash(struct led_classdev *led_cdev,
@@ -257,6 +268,7 @@ static int tricolor_led_probe(struct platform_device *pdev)
 
 	spin_lock_init(&tricolor_led->led_lock);
 
+#ifndef CONFIG_JSR_KERNEL
 	/* initialize tricolor_led->pc_client */
 	tricolor_led->rpc_client = oem_rapi_client_init();
 	ret = IS_ERR(tricolor_led->rpc_client);
@@ -265,6 +277,7 @@ static int tricolor_led_probe(struct platform_device *pdev)
 		tricolor_led->rpc_client = NULL;
 		goto err_init_rpc_client;
 	}
+#endif
 
 	tricolor_led->leds[0].name = "red";
 	tricolor_led->leds[0].brightness_set = led_brightness_set_tricolor;
@@ -307,12 +320,14 @@ err_led_classdev_register_failed:
 	for (j = 0; j < i; j++)
 		led_classdev_unregister(&tricolor_led->leds[j]);
 
+#ifndef CONFIG_JSR_KERNEL
 err_init_rpc_client:
 	/* If above errors occurred, close pdata->rpc_client */
 	if (tricolor_led->rpc_client) {
 		oem_rapi_client_close();
 		printk(KERN_ERR "tri-color-led: oem_rapi_client_close\n");
 	}
+#endif
 	kfree(tricolor_led);
 err:
 	return ret;
@@ -330,9 +345,11 @@ static int __devexit tricolor_led_remove(struct platform_device *pdev)
 		device_remove_file(tricolor_led->leds[i].dev, &dev_attr_blink);
 		led_classdev_unregister(&tricolor_led->leds[i]);
 	}
+#ifndef CONFIG_JSR_KERNEL
 	/* close tricolor_led->rpc_client */
 	oem_rapi_client_close();
 	tricolor_led->rpc_client = NULL;
+#endif
 
 	kfree(tricolor_led);
 	return 0;
