@@ -465,9 +465,9 @@ static int __init reserve_adsp_size_setup(char *p)
 early_param("reserve_adsp_size", reserve_adsp_size_setup);
 
 static struct msm_psy_batt_pdata msm_psy_batt_data = {
-	.voltage_min_design     = 3200,
+	.voltage_min_design     = 3330,
 	.voltage_max_design     = 4200,
-	.voltage_fail_safe      = 3298,
+	.voltage_fail_safe      = 3400,
 	.avail_chg_sources      = AC_CHG | USB_CHG,
 	.batt_technology        = POWER_SUPPLY_TECHNOLOGY_LION,
 };
