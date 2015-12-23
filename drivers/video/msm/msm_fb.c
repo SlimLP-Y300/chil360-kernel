@@ -170,6 +170,8 @@ static int hack_lcd = 1;
 #else
 static int hack_lcd = 0;
 #endif
+static int chg_hack_lcd = -1;
+static int boot_charger = 0;
 
 static int __init hack_lcd_setup(char *str)
 {
@@ -177,6 +179,23 @@ static int __init hack_lcd_setup(char *str)
 	return 0;
 }
 early_param("hack_lcd", hack_lcd_setup);
+
+
+static int __init chg_hack_lcd_setup(char *str)
+{
+	get_option(&str, &chg_hack_lcd);
+	return 0;
+}
+early_param("chg_hack_lcd", chg_hack_lcd_setup);
+
+
+static int __init boot_charger_setup(char *str)
+{
+	if (!strcmp(str, "charger"))
+		boot_charger = 1;
+	return 0;
+}
+early_param("androidboot.mode", boot_charger_setup);
 
 
 #ifdef MSM_FB_ENABLE_DBGFS
@@ -4755,6 +4774,9 @@ static void __exit msm_fb_exit(void)
 int __init msm_fb_init(void)
 {
 	int rc = -ENODEV;
+
+	if (boot_charger && chg_hack_lcd >= 0)
+		hack_lcd = chg_hack_lcd;
 
 	if (msm_fb_register_driver())
 		return rc;
