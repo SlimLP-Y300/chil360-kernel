@@ -295,6 +295,7 @@ struct msm_battery_info {
 #ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
 	u32 qcom_battery_capacity;
 	u32 qcom_battery_voltage_min;
+	u32 battery_charge_type;
 #endif
 
 	u32(*calculate_capacity) (u32 voltage);
@@ -327,6 +328,7 @@ static struct msm_battery_info msm_batt_info = {
 #ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
 	.qcom_battery_capacity = 100,
 	.qcom_battery_voltage_min = 9999,
+	.battery_charge_type = POWER_SUPPLY_CHARGE_TYPE_NONE,
 #endif
 	.batt_status = POWER_SUPPLY_STATUS_DISCHARGING,
 	.batt_health = POWER_SUPPLY_HEALTH_GOOD,
@@ -394,6 +396,9 @@ static enum power_supply_property msm_batt_power_props[] = {
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_TEMP,
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+	POWER_SUPPLY_PROP_CHARGE_TYPE,
+#endif
 };
 
 static int msm_batt_power_get_property(struct power_supply *psy,
@@ -436,6 +441,11 @@ static int msm_batt_power_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_TEMP:
 		val->intval = msm_batt_info.battery_temp;
 		break;
+#ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
+	case POWER_SUPPLY_PROP_CHARGE_TYPE:
+		val->intval = msm_batt_info.battery_charge_type;
+		break;
+#endif
 	default:
 		return -EINVAL;
 	}
@@ -563,6 +573,7 @@ static void msm_batt_update_psy_status(void)
 	u32	battery_voltage;
 #ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
 	u32	qcom_battery_capacity;
+	u32	battery_charge_type;
 #endif
 	u32	battery_temp;
 	struct	power_supply	*supp;
@@ -621,6 +632,11 @@ static void msm_batt_update_psy_status(void)
 	} else {
 		v1p->battery_level = BATTERY_LEVEL_GOOD;
 	}
+	if (reply_charger.is_charging) {
+		battery_charge_type = POWER_SUPPLY_CHARGE_TYPE_TRICKLE;
+	} else {
+		battery_charge_type = POWER_SUPPLY_CHARGE_TYPE_NONE;
+	}
 #endif
 
 	charger_status = rep_batt_chg.v1.charger_status;
@@ -643,6 +659,7 @@ static void msm_batt_update_psy_status(void)
 	    battery_voltage == msm_batt_info.battery_voltage &&
 #ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
 	    qcom_battery_capacity == msm_batt_info.qcom_battery_capacity &&
+	    battery_charge_type == msm_batt_info.battery_charge_type &&
 #endif
 	    battery_temp == msm_batt_info.battery_temp) {
 		/* Got unnecessary event from Modem PMIC VBATT driver.
@@ -826,6 +843,7 @@ static void msm_batt_update_psy_status(void)
 	msm_batt_info.battery_status 	= battery_status;
 	msm_batt_info.battery_level 	= battery_level;
 	msm_batt_info.battery_temp 	= battery_temp;
+	msm_batt_info.battery_charge_type = battery_charge_type;
 
 #ifdef CONFIG_MSM_BATTERY_CHG_LEGACY
 	if (msm_batt_info.battery_voltage != battery_voltage || 
