@@ -1434,6 +1434,10 @@ static u32 msm_batt_capacity(u32 current_voltage)
 	if (current_voltage < msm_batt_info.qcom_battery_voltage_min)
 		if (current_voltage > low_voltage + 65)
 			msm_batt_info.qcom_battery_voltage_min = current_voltage;
+	if (current_voltage <= low_voltage - 50)
+		return 0;
+	if (current_voltage <= low_voltage)
+		return 1;
 #endif
 	if (current_voltage <= low_voltage)
 		return 0;
