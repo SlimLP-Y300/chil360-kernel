@@ -600,8 +600,6 @@ static void msm_batt_update_psy_status(void)
 	switch (reply_charger.charger_hardware) {
 		case L_CHARGER_TYPE_USB_PC:
 			v1p->charger_type = CHARGER_TYPE_USB_PC;
-			if (!reply_charger.is_charging)
-				v1p->charger_type = CHARGER_TYPE_NONE;
 			break;
 		case L_CHARGER_TYPE_USB_WALL:
 			v1p->charger_type = CHARGER_TYPE_USB_WALL;
@@ -635,6 +633,7 @@ static void msm_batt_update_psy_status(void)
 	if (reply_charger.is_charging) {
 		battery_charge_type = POWER_SUPPLY_CHARGE_TYPE_TRICKLE;
 	} else {
+		v1p->charger_type = CHARGER_TYPE_NONE;
 		battery_charge_type = POWER_SUPPLY_CHARGE_TYPE_NONE;
 	}
 #endif
