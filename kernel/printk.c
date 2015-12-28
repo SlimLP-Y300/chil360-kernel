@@ -1911,7 +1911,8 @@ void kmsg_dump(enum kmsg_dump_reason reason)
 /* ----------------------- new config params ------------------------ */
 
 #define PRAM_START_1GB_DEF   (0x35000000)
-#define PRAM_START_768MB_DEF (0x26000000)
+#define PRAM_START_768MB_DEF (0x25000000)
+#define PRAM_START_512MB_DEF (0x15000000)
 #define PRAM_SIZE_DEFAULT    (SZ_1M)
 #define PMEM_LOG_SIZE        (SZ_1M)
 
@@ -1980,8 +1981,9 @@ int reserve_persist_ram(phys_addr_t max_low, phys_addr_t max_high)
 	pr_info("%s: needed size = 0x%lx \n", __func__, (long)size);
 	if (!size)
 		return 0;	
-	//base = (max_high > PRAM_START_2GB_DEF) ? PRAM_START_2GB_DEF : PRAM_START_1GB_DEF;
-	base = PRAM_START_1GB_DEF;
+	base = PRAM_START_512MB_DEF;
+	if (max_high > 512 * SZ_1M) base = PRAM_START_768MB_DEF;
+	if (max_high > 768 * SZ_1M) base = PRAM_START_1GB_DEF;
 	rc = memblock_reserve(base, size);
 	if (rc) {
 		pr_err("Failed to reserve persistent ram at 0x%lx (size = 0x%lx) \n", (long)base, (long)size);
