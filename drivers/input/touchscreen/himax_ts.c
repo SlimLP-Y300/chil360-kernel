@@ -571,7 +571,7 @@ uint8_t is_TP_Updated = 0;
 //linxc update TP FW 2012-11-14
 static unsigned char CTPM_FW[]=
 {
-	#include "Himax_FW_Wintek_D9_Innos_Sharp_V13-D6-03_82HZ_2012-11-13_1006.i"
+	#include "Himax_FW_Wintek_D9_Innos_Sharp_V13-D6-04_82HZ_2013-06-13_1006.inc"
 };
 
 unsigned char SFR_3u_1[16][2] = {{0x18,0x06},{0x18,0x16},{0x18,0x26},{0x18,0x36},{0x18,0x46},
