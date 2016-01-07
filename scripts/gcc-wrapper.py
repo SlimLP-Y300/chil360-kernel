@@ -36,6 +36,78 @@ import os
 import sys
 import subprocess
 
+def gen_pvs_data():
+    if len(sys.argv) < 5 :
+        return
+
+    fn = sys.argv[-1]
+    if fn[-2:] != ".c" :
+        return
+
+    alist = sys.argv[1:]
+    for idx, item in enumerate(alist) :
+        if item == '-E' :
+            return
+
+    sfn = sys.argv[0]
+    klist = sfn.rsplit('/', 2)
+    kdir = klist[0]
+    pdir = os.environ['PVS_STUDIO_PRJ']
+    ifn = fn[:-1]
+    ifn += 'i'
+
+    alist[-1] = '-E'
+    alist.append(kdir + '/' + fn)
+
+    for idx, item in enumerate(alist) :
+        if item == '-o' :
+            alist[idx+1] = kdir + '/' + ifn
+
+    for idx, item in enumerate(alist) :
+        if item[:2] == '-I' and item[2] != '/' :
+            alist[idx] = '-I' + kdir + '/' + item[2:]
+
+    try:
+        proc = subprocess.Popen(alist)
+        result = proc.wait()
+    except OSError as e:
+        result = e.errno
+
+    if os.path.isfile(ifn) != True :
+        return
+
+    c = open(ifn, 'r')
+    idata = c.read()
+    c.close()
+    idata = idata.replace(kdir, pdir.replace('\\', '/'))
+    gcclnx = os.environ['PVS_STUDIO_GCC_LNX']
+    gccwnd = os.environ['PVS_STUDIO_GCC_WND']
+    idata = idata.replace(gcclnx, gccwnd.replace('\\', '/'))
+    c = open(ifn, 'w')
+    c.write(idata)
+    c.close()
+
+    c = open(os.environ['PVS_STUDIO_CFG'], 'r')
+    cfg = c.read()
+    c.close()
+    cfg = cfg.replace('{pd}', pdir)
+    cfg = cfg.replace('{fn}', fn.replace('/', '\\'))
+    cfg = cfg.replace('{ifn}', ifn.replace('/', '\\'))
+
+    cdir = os.path.dirname(fn)
+    ext = os.environ['PVS_STUDIO_EXT']
+    cfgfn = fn + ext
+    c = open(cfgfn, 'w')
+    c.write(cfg)
+    c.close()    
+
+    exe = os.environ['PVS_STUDIO_EXE']
+    tcf = pdir + '\\' + fn.replace('/', '\\') + ext
+    cmd = open(kdir + '/' + os.environ['PVS_STUDIO_CMD'], 'a')
+    cmd.write(exe + ' --cfg ' + tcf + "\r\n")
+    cmd.close()
+
+
 # Note that gcc uses unicode, which may depend on the locale.  TODO:
 # force LANG to be set to en_US.UTF-8 to get consistent warnings.
 
@@ -75,6 +147,9 @@ def run_gcc():
         pass
 
     compiler = sys.argv[0]
+
+    if 'PVS_STUDIO' in os.environ :
+        gen_pvs_data()
 
     try:
         proc = subprocess.Popen(args, stderr=subprocess.PIPE)
