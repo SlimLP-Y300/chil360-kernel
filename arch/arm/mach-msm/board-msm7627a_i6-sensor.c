@@ -20,7 +20,9 @@
 #ifdef CONFIG_AVAGO_APDS990X
 #include <linux/input/apds990x.h>
 #endif
-
+#ifdef	CONFIG_INPUT_LTR558_I6
+#include <linux/input/ltr558.h>
+#endif
 #ifdef CONFIG_MPU_SENSORS_MPU3050
 #include <linux/mpu.h>
 #endif
@@ -28,11 +30,11 @@
 #ifdef  CONFIG_INPUT_LTR502
 #include <linux/input/ltr502.h>
 #endif
-
-#if defined (CONFIG_I2C) && defined(CONFIG_INPUT_LTR558)
-#include <linux/input/ltr558.h>
+#if 0
+#if defined (CONFIG_I2C) && defined(CONFIG_INPUT_LTR558_I6)
+#include <linux/i2c/ltr558_d9.h>
 #endif
-
+#endif
 #ifdef CONFIG_SENSORS_AK8975
 #include <linux/akm8975.h>
 #endif
@@ -208,6 +210,14 @@ static int mpu3050_gpio_setup(void) {
 	return ret;
 }
 #endif
+#ifdef CONFIG_MXC_MMA8452
+static struct i2c_board_info mxc_i2c0_board_info[]__initdata={
+       {
+             .type="mma8452",
+             .addr=0x1C,
+       },
+};
+#endif
 
 #ifdef CONFIG_BOSCH_BMA250
 static struct i2c_board_info bma250_i2c_info[] __initdata = {
@@ -240,7 +250,24 @@ static struct i2c_board_info bmm050_i2c_info[] __initdata = {
 	},
 };
 #endif
+#if defined (CONFIG_I2C) && defined(CONFIG_INPUT_LTR558_I6)
 
+#ifndef LTR558_INT_GPIO
+#define LTR558_INT_GPIO  17
+#endif
+
+static struct ltr558_platform_data ltr558_pdata = {
+	.intr = LTR558_INT_GPIO
+};
+
+static struct i2c_board_info ltr558_light_i2c_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("ltr558", 0x23),
+		.platform_data = &ltr558_pdata,
+		.irq = MSM_GPIO_TO_INT(LTR558_INT_GPIO),
+	},
+};
+#endif
 #if defined(CONFIG_I2C) && defined(CONFIG_INPUT_LTR502)
 
 static struct ltr502_platform_data ltr502_pdata = {
@@ -272,7 +299,7 @@ static int ltr502_light_gpio_setup(void) {
 	return ret;
 }
 #endif
-
+#if 0
 #if defined (CONFIG_I2C) && defined(CONFIG_INPUT_LTR558_I6)
 #ifndef LTR508_INT_GPIO
 #define LTR508_INT_GPIO  17//112
@@ -290,7 +317,7 @@ static struct i2c_board_info ltr558_light_i2c_info[] __initdata = {
 	},
 };
 #endif
-
+#endif
 #ifdef  CONFIG_INPUT_LIS3DH
 
 #define GPIO_ACC_INT 28
@@ -319,6 +346,14 @@ static int lis3dh_acc_gpio_setup(void) {
 	//lis3dh_acc_i2c_info[0].irq = gpio_to_irq(GPIO_ACC_INT);
 	return ret;
 }
+#endif
+
+#if defined(CONFIG_INPUT_YAS_MAGNETOMETER) && defined(CONFIG_INPUT_YAS_ACCELEROMETER)
+static struct i2c_board_info board_yamaha_i2c_info[] __initdata= {
+	{
+		I2C_BOARD_INFO("accelerometer", 0x38),
+	},
+};
 #endif
 
 #ifdef CONFIG_SENSORS_AK8975
@@ -403,7 +438,7 @@ void __init msm7627a_sensor_init(void)
 #endif
 
 #ifdef CONFIG_BOSCH_BMA250
-	if (machine_is_msm8625_qrd7() || machine_is_msm7627a_qrd3() || machine_is_msm8625q_skud()) {
+	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb() || machine_is_msm8625_qrd5() || machine_is_msm7x27a_qrd5a())
 		pr_info("i2c_register_board_info BMA250 ACC\n");
 		i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
 					bma250_i2c_info,
@@ -420,6 +455,12 @@ void __init msm7627a_sensor_init(void)
 	}
 #endif
 
+#ifdef CONFIG_INPUT_LTR558_I6
+		pr_info("i2c_register_board_info LTR558\n");
+		i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
+				ltr558_light_i2c_info,
+				ARRAY_SIZE(ltr558_light_i2c_info));
+#endif
 #ifdef CONFIG_INPUT_LIS3DH
 	if (machine_is_msm8625q_skue()) {
 		lis3dh_acc_gpio_setup();
@@ -428,6 +469,13 @@ void __init msm7627a_sensor_init(void)
 					lis3dh_acc_i2c_info,
 					ARRAY_SIZE(lis3dh_acc_i2c_info));
 	}
+
+#endif
+#if defined(CONFIG_INPUT_YAS_MAGNETOMETER) && defined(CONFIG_INPUT_YAS_ACCELEROMETER)
+		pr_info("i2c_register_board_info YAMAHA SENSORS.\n");
+		i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID,
+					board_yamaha_i2c_info,
+					ARRAY_SIZE(board_yamaha_i2c_info));
 #endif
 
 #ifdef CONFIG_SENSORS_BMA250
@@ -441,6 +489,12 @@ void __init msm7627a_sensor_init(void)
 				ARRAY_SIZE(bmm050_i2c_info));
 #endif
 
+#ifdef CONFIG_MXC_MMA8452
+       pr_info("i2c_register_board_info_mma8452\n");
+               i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
+                       mxc_i2c0_board_info,
+                       ARRAY_SIZE(mxc_i2c0_board_info));
+#endif
 #ifdef CONFIG_INPUT_LTR502
 	if (machine_is_msm8625_qrd7() || machine_is_msm7627a_qrd3()) {
 		pr_info("i2c_register_board_info LTR502\n");
@@ -450,12 +504,13 @@ void __init msm7627a_sensor_init(void)
 				ARRAY_SIZE(ltr502_light_i2c_info));
 	}
 #endif
-
+#if 0
 #ifdef CONFIG_INPUT_LTR558_I6
 	printk("i2c_register_board_info LTR558 weiqingdan\n");
 	i2c_register_board_info(MSM_GSBI1_QUP_I2C_BUS_ID,
 				ltr558_light_i2c_info,
 				ARRAY_SIZE(ltr558_light_i2c_info));
+#endif
 #endif
 
 #ifdef CONFIG_SENSORS_AK8975
