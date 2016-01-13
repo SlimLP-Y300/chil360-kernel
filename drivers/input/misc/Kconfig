@@ -683,4 +683,11 @@ config INPUT_LTR558
 	help
 	  Driver for LTR558 light/proximity sensor.
 
+config INPUT_LTR558_I6
+	tristate "LTR558 light/proximity sensor support"
+	depends on I2C
+	default n
+	help
+	  Driver for I6 LTR558 light/proximity sensor.
+
 endif

@@ -1434,4 +1434,16 @@ config SENSORS_ATK0110
 
 endif # ACPI
 
+config MXC_MMA8452
+       tristate "MMA8452 device driver"
+       depends on I2C && SYSFS
+       default n
+
+config MXC_MMA_POSITION
+       int "MMA845x Accelerate Sensor Position Setting"
+       depends on MXC_MMA8452
+       default "7"
+       help
+       this provide the sensor position setting,value is between 0~7
+
 endif # HWMON
