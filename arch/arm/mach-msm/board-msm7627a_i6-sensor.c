@@ -348,14 +348,6 @@ static int lis3dh_acc_gpio_setup(void) {
 }
 #endif
 
-#if defined(CONFIG_INPUT_YAS_MAGNETOMETER) && defined(CONFIG_INPUT_YAS_ACCELEROMETER)
-static struct i2c_board_info board_yamaha_i2c_info[] __initdata= {
-	{
-		I2C_BOARD_INFO("accelerometer", 0x38),
-	},
-};
-#endif
-
 #ifdef CONFIG_SENSORS_AK8975
 
 static struct msm_gpio akm_gpio_cfg_data[] = {
@@ -470,12 +462,6 @@ void __init msm7627a_sensor_init(void)
 					ARRAY_SIZE(lis3dh_acc_i2c_info));
 	}
 
-#endif
-#if defined(CONFIG_INPUT_YAS_MAGNETOMETER) && defined(CONFIG_INPUT_YAS_ACCELEROMETER)
-		pr_info("i2c_register_board_info YAMAHA SENSORS.\n");
-		i2c_register_board_info(MSM_GSBI0_QUP_I2C_BUS_ID,
-					board_yamaha_i2c_info,
-					ARRAY_SIZE(board_yamaha_i2c_info));
 #endif
 
 #ifdef CONFIG_SENSORS_BMA250
