@@ -39,10 +39,6 @@
 #define MACHINE_IS_JSR_I6Q  \
  (machine_is_msm8625_skud())
 
-#ifdef CONFIG_LEDS_TRICOLOR_FLAHSLIGHT
-#undef CONFIG_LEDS_TRICOLOR_FLAHSLIGHT
-#endif
-
 
  
 static int tp_id = 0;
@@ -98,13 +94,10 @@ static unsigned int kp_row_gpios_8625[] = {31};
 static unsigned int kp_col_gpios_8625[] = {36, 37};
 
 static const unsigned short keymap_8625[] = {
-	KEY_VOLUMEUP,
-	KEY_VOLUMEDOWN,
-};
-
-static const unsigned short keymap_8625_qrd5[] = {
-	KEY_VOLUMEDOWN,
-	KEY_VOLUMEUP,
+    KEY_VOLUMEUP,    
+    KEY_VOLUMEDOWN,
+      
+	
 };
 
 static struct gpio_event_matrix_info kp_matrix_info_8625 = {
@@ -329,38 +322,8 @@ static void __init ft5x06_touchpad_setup(void)
 }
 */
 
-/* skud flash led and touch*/
-/*
-#define FLASH_LED_SKUD 34
-#define FLASH_LED_TORCH_SKUD 48
-
-static struct gpio_led gpio_flash_config_skud[] = {
-	{
-		.name = "flashlight",
-		.gpio = FLASH_LED_SKUD,
-	},
-	{
-		.name = "torch",
-		.gpio = FLASH_LED_TORCH_SKUD,
-	},
-};
-
-static struct gpio_led_platform_data gpio_flash_pdata_skud = {
-	.num_leds = ARRAY_SIZE(gpio_flash_config_skud),
-	.leds = gpio_flash_config_skud,
-};
-
-static struct platform_device gpio_flash_skud = {
-	.name          = "leds-gpio",
-	.id            = -1,
-	.dev           = {
-		.platform_data = &gpio_flash_pdata_skud,
-	},
-};
-*/
-/* end of skud flash led and touch*/
-
 #ifdef CONFIG_LEDS_TRICOLOR_FLAHSLIGHT
+
 
 #define LED_FLASH_EN1 13
 #define QRD7_LED_FLASH_EN 96
@@ -370,6 +333,7 @@ static struct msm_gpio tricolor_leds_gpio_cfg_data[] = {
 	GPIO_CFG(-1, 0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
 		"flashlight"},
 };
+
 
 static int tricolor_leds_gpio_setup(void) {
 	int ret = 0;
@@ -397,7 +361,30 @@ static struct platform_device msm_device_tricolor_leds = {
 };
 #endif
 
-/*
+#if 0
+static struct pmic8029_led_platform_data leds_data[] = {
+	{
+		.name = "button-backlight",
+		.which = PM_MPP_7,
+		.type = PMIC8029_DRV_TYPE_CUR,
+		.max.cur = PM_MPP__I_SINK__LEVEL_40mA,
+	},
+};
+
+static struct pmic8029_leds_platform_data pmic8029_leds_pdata = {
+	.leds = leds_data,
+	.num_leds = 1,
+};
+
+static struct platform_device pmic_mpp_leds_pdev = {
+	.name   = "pmic-mpp-leds",
+	.id     = -1,
+	.dev    = {
+		.platform_data	= &pmic8029_leds_pdata,
+	},
+};
+#endif
+#if 0
 static struct led_info tricolor_led_info[] = {
 	[0] = {
 		.name           = "red",
@@ -406,6 +393,10 @@ static struct led_info tricolor_led_info[] = {
 	[1] = {
 		.name           = "green",
 		.flags          = LED_COLOR_GREEN,
+	},
+	[2] = {
+		.name           = "blue",
+		.flags          = LED_COLOR_BLUE,
 	},
 };
 
@@ -421,8 +412,8 @@ static struct platform_device tricolor_leds_pdev = {
 		.platform_data  = &tricolor_led_pdata,
 	},
 };
-*/
 
+#endif
 void __init msm7627a_add_io_devices(void)
 {
 	return;
@@ -457,11 +448,11 @@ void __init qrd7627a_add_io_devices(void)
 #ifdef CONFIG_MSM_RPC_VIBRATOR
 	msm_init_pmic_vibrator();
 #endif
-
+#if 0
 	/* keypad */
 	if (machine_is_msm8625_qrd5() || machine_is_msm7x27a_qrd5a())
 		kp_matrix_info_8625.keymap = keymap_8625_qrd5;
-
+#endif
 	if (MACHINE_IS_JSR_I6)
 		platform_device_register(&kp_pdev_8625);
 /*
@@ -471,21 +462,18 @@ void __init qrd7627a_add_io_devices(void)
 		platform_device_register(&kp_pdev_skud);
 */
 	/* leds */
-/*
-	if (MACHINE_IS_JSR_I6) {
-		platform_device_register(&pmic_mpp_leds_pdev);
-		platform_device_register(&tricolor_leds_pdev);
-	} else if (machine_is_msm8625q_skud()) {
-		platform_device_register(&pmic_mpp_leds_pdev_skud);
-		// enable the skud flash and torch by gpio leds driver
-		platform_device_register(&gpio_flash_skud);
-	}
-*/
+
+
+		//platform_device_register(&pmic_mpp_leds_pdev);
+		//platform_device_register(&tricolor_leds_pdev);
+	
 #ifdef CONFIG_LEDS_TRICOLOR_FLAHSLIGHT
-	/*tricolor leds init*/
-	if (MACHINE_IS_JSR_I6) {
+	    /*tricolor leds init*/
+	if (machine_is_msm7627a_evb() || machine_is_msm8625_evb()
+            || machine_is_msm8625_qrd5() || machine_is_msm7x27a_qrd5a()) {
 		platform_device_register(&msm_device_tricolor_leds);
 		tricolor_leds_gpio_setup();
 	}
-#endif
-}
+#endif  
+	
+

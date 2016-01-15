@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All Rights Reserved.
+﻿/* Copyright (c) 2011-2012, The Linux Foundation. All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -902,14 +902,12 @@ static void __init msm7627a_init_regulators(void)
 }
 /*start by lf 2012.12.26 for button-backlight*/
 #if defined(CONFIG_LEDS_GPIO) || defined(CONFIG_LEDS_GPIO_MODULE)
-#if 1//def D9_BOARD_MBV2P0_BSP
-#define D9_LED_GPIO_KEYBOARD  49
-#else
-#define D9_LED_GPIO_KEYBOARD  82
-#endif
+
+#define I6_LED_GPIO_KEYBOARD  82
+
 static struct gpio_led gpio_leds[] = {
 	[0] = {
-		.gpio			= D9_LED_GPIO_KEYBOARD,
+		.gpio			= I6_LED_GPIO_KEYBOARD,
 		.name			= "button-backlight",
 		.default_trigger	= "none",
 		.active_low		= 0,
@@ -932,7 +930,7 @@ static struct platform_device led_device = {
 static void __init keyboard_leds_init(void)
 {
 	int rc;
-		rc = gpio_tlmm_config(GPIO_CFG(D9_LED_GPIO_KEYBOARD, 0,
+		rc = gpio_tlmm_config(GPIO_CFG(I6_LED_GPIO_KEYBOARD, 0,
 				GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
 				GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 		if (rc < 0) {

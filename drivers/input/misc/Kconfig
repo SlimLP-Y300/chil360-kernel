@@ -1,4 +1,4 @@
-#
+﻿#
 # Input misc drivers configuration
 #
 menuconfig INPUT_MISC
@@ -11,6 +11,11 @@ menuconfig INPUT_MISC
 	  If unsure, say Y.
 
 if INPUT_MISC
+
+source "drivers/input/misc/yamaha/accelerometer/Kconfig"
+source "drivers/input/misc/yamaha/geomagnetic/Kconfig"
+source "drivers/input/misc/yamaha/orientation/Kconfig"
+
 
 config INPUT_88PM860X_ONKEY
 	tristate "88PM860x ONKEY support"
