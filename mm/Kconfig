@@ -245,32 +245,6 @@ config KSM
 	  See Documentation/vm/ksm.txt for more information: KSM is inactive
 	  until a program has madvised that an area is MADV_MERGEABLE, and
 	  root has set /sys/kernel/mm/ksm/run to 1 (if CONFIG_SYSFS is set).
-choice
-	prompt "Choose UKSM/KSM strategy"
-	default UKSM
-	depends on KSM
-	help
-	  This option allows to select a UKSM/KSM stragety.
-
-config UKSM
-	bool "Ultra-KSM for page merging"
-	depends on KSM
-	help
-	UKSM is inspired by the Linux kernel project \u2014 KSM(Kernel Same
-	page Merging), but with a fundamentally rewritten core algorithm. With
-	an advanced algorithm, UKSM now can transparently scans all anonymously
-	mapped user space applications with an significantly improved scan speed
-	and CPU efficiency. Since KVM is friendly to KSM, KVM can also benefit from
-	UKSM. Now UKSM has its first stable release and first real world enterprise user.
-	For more information, please goto its project page.
-	(www.kerneldedup.org)
-
-config KSM_LEGACY
-	bool "Legacy KSM implementation"
-	depends on KSM
-	help
-	The legacy KSM implementation from Redhat.
-endchoice
 
 config DEFAULT_MMAP_MIN_ADDR
         int "Low address space to protect from user allocation"
@@ -406,6 +380,23 @@ config CLEANCACHE
 
 	  If unsure, say Y to enable cleancache
 
+config FRONTSWAP
+	bool "Enable frontswap to cache swap pages if tmem is present"
+	depends on SWAP
+	default n
+	help
+	  Frontswap is so named because it can be thought of as the opposite
+	  of a "backing" store for a swap device.  The data is stored into
+	  "transcendent memory", memory that is not directly accessible or
+	  addressable by the kernel and is of unknown and possibly
+	  time-varying size.  When space in transcendent memory is available,
+	  a significant swap I/O reduction may be achieved.  When none is
+	  available, all frontswap calls are reduced to a single pointer-
+	  compare-against-NULL resulting in a negligible performance hit
+	  and swap data is stored as normal on the matching swap device.
+
+	  If unsure, say Y to enable frontswap.
+
 config MEMORY_HOLE_CARVEOUT
         bool
         help
@@ -451,12 +442,3 @@ config PGTABLE_MAPPING
 
 	  You can check speed with zsmalloc benchmark[1].
 	  [1] https://github.com/spartacus06/zsmalloc
-
-config DYNAMIC_PAGE_WRITEBACK
-	bool "Dynamically manage the dirty page writebacks during suspend/resume"
-	default n
-	help
-	  This feature allows to use different dirty page writeback intervals
-	  when the system is suspended and when the system has been resumed.
-
-	  If unsure, say N to disable this feature

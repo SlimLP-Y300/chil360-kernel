@@ -136,11 +136,6 @@ extern unsigned int dirty_expire_interval;
 extern int vm_highmem_is_dirtyable;
 extern int block_dump;
 extern int laptop_mode;
-#ifdef CONFIG_DYNAMIC_PAGE_WRITEBACK
-extern int dyn_dirty_writeback_enabled;
-extern unsigned int dirty_writeback_active_interval;
-extern unsigned int dirty_writeback_suspend_interval;
-#endif
 
 extern int dirty_background_ratio_handler(struct ctl_table *table, int write,
 		void __user *buffer, size_t *lenp,
@@ -159,15 +154,6 @@ struct ctl_table;
 int dirty_writeback_centisecs_handler(struct ctl_table *, int,
 				      void __user *, size_t *, loff_t *);
 
-#ifdef CONFIG_DYNAMIC_PAGE_WRITEBACK
-int dynamic_dirty_writeback_handler(struct ctl_table *, int,
-				      void __user *, size_t *, loff_t *);
-int dirty_writeback_active_centisecs_handler(struct ctl_table *, int,
-				      void __user *, size_t *, loff_t *);
-int dirty_writeback_suspend_centisecs_handler(struct ctl_table *, int,
-				      void __user *, size_t *, loff_t *);
-#endif
-
 void global_dirty_limits(unsigned long *pbackground, unsigned long *pdirty);
 unsigned long bdi_dirty_limit(struct backing_dev_info *bdi,
 			       unsigned long dirty);
@@ -181,14 +167,7 @@ void __bdi_update_bandwidth(struct backing_dev_info *bdi,
 			    unsigned long start_time);
 
 void page_writeback_init(void);
-void balance_dirty_pages_ratelimited_nr(struct address_space *mapping,
-					unsigned long nr_pages_dirtied);
-
-static inline void
-balance_dirty_pages_ratelimited(struct address_space *mapping)
-{
-	balance_dirty_pages_ratelimited_nr(mapping, 1);
-}
+void balance_dirty_pages_ratelimited(struct address_space *mapping);
 
 typedef int (*writepage_t)(struct page *page, struct writeback_control *wbc,
 				void *data);
@@ -201,7 +180,6 @@ int write_cache_pages(struct address_space *mapping,
 		      struct writeback_control *wbc, writepage_t writepage,
 		      void *data);
 int do_writepages(struct address_space *mapping, struct writeback_control *wbc);
-void set_page_dirty_balance(struct page *page, int page_mkwrite);
 void writeback_set_ratelimit(void);
 void tag_pages_for_writeback(struct address_space *mapping,
 			     pgoff_t start, pgoff_t end);

@@ -30,6 +30,8 @@
  *
  */
 
+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
@@ -37,9 +39,19 @@
 #include <linux/sched.h>
 #include <linux/rcupdate.h>
 #include <linux/notifier.h>
+#include <linux/swap.h>
 #include <linux/mutex.h>
 #include <linux/delay.h>
-#include <linux/swap.h>
+#include <linux/fs.h>
+#include <linux/cpuset.h>
+#include <linux/show_mem_notifier.h>
+#include <linux/vmpressure.h>
+#define CREATE_TRACE_POINTS
+#include <trace/events/almk.h>
+
+#ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER_DO_NOT_KILL_PROCESS
+#include <linux/string.h>
+#endif
 
 #ifdef CONFIG_HIGHMEM
 #define _ZONE ZONE_HIGHMEM
@@ -66,29 +78,187 @@ static int lmk_fast_run = 1;
 
 static unsigned long lowmem_deathpending_timeout;
 
+#ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER_DO_NOT_KILL_PROCESS
+#define MAX_NOT_KILLABLE_PROCESSES	25	/* Max number of not killable processes */
+#define MANAGED_PROCESS_TYPES		3	/* Numer of managed process types (lowmem_process_type) */
+
+/*
+ * Enumerator for the managed process types
+ */
+enum lowmem_process_type {
+	KILLABLE_PROCESS,
+	DO_NOT_KILL_PROCESS,
+	DO_NOT_KILL_SYSTEM_PROCESS
+};
+
+/*
+ * Data struct for the management of not killable processes
+ */
+struct donotkill {
+	uint enabled;
+	char *names[MAX_NOT_KILLABLE_PROCESSES];
+	int names_count;
+};
+
+static struct donotkill donotkill_proc;		/* User processes to preserve from killing */
+static struct donotkill donotkill_sysproc;	/* System processes to preserve from killing */
+
+/*
+ * Checks if a process name is inside a list of processes to be preserved from killing
+ */
+static bool is_in_donotkill_list(char *proc_name, struct donotkill *donotkill_proc)
+{
+	int i = 0;
+
+	/* If the do not kill feature is enabled and the process names to be preserved
+	 * is not empty, then check if the passed process name is contained inside it */
+	if (donotkill_proc->enabled && donotkill_proc->names_count > 0) {
+		for (i = 0; i < donotkill_proc->names_count; i++) {
+			if (strstr(donotkill_proc->names[i], proc_name) != NULL)
+				return true; /* The process must be preserved from killing */
+		}
+	}
+
+	return false; /* The process is not contained inside the process names list */
+}
+
+/*
+ * Checks if a process name is inside a list of user processes to be preserved from killing
+ */
+static bool is_in_donotkill_proc_list(char *proc_name)
+{
+	return is_in_donotkill_list(proc_name, &donotkill_proc);
+}
+
+/*
+ * Checks if a process name is inside a list of system processes to be preserved from killing
+ */
+static bool is_in_donotkill_sysproc_list(char *proc_name)
+{
+	return is_in_donotkill_list(proc_name, &donotkill_sysproc);
+}
+#else
+#define MANAGED_PROCESS_TYPES		1	/* Numer of managed process types (lowmem_process_type) */
+
+/*
+ * Enumerator for the managed process types
+ */
+enum lowmem_process_type {
+	KILLABLE_PROCESS
+};
+#endif
+
 #define lowmem_print(level, x...)			\
 	do {						\
 		if (lowmem_debug_level >= (level))	\
-			printk(x);			\
+			pr_info(x);			\
 	} while (0)
+
+static atomic_t shift_adj = ATOMIC_INIT(0);
+static short adj_max_shift = 353;
+
+/* User knob to enable/disable adaptive lmk feature */
+static int enable_adaptive_lmk;
+module_param_named(enable_adaptive_lmk, enable_adaptive_lmk, int,
+	S_IRUGO | S_IWUSR);
+
+/*
+ * This parameter controls the behaviour of LMK when vmpressure is in
+ * the range of 90-94. Adaptive lmk triggers based on number of file
+ * pages wrt vmpressure_file_min, when vmpressure is in the range of
+ * 90-94. Usually this is a pseudo minfree value, higher than the
+ * highest configured value in minfree array.
+ */
+static int vmpressure_file_min;
+module_param_named(vmpressure_file_min, vmpressure_file_min, int,
+	S_IRUGO | S_IWUSR);
+
+enum {
+	VMPRESSURE_NO_ADJUST = 0,
+	VMPRESSURE_ADJUST_ENCROACH,
+	VMPRESSURE_ADJUST_NORMAL,
+};
+
+int adjust_minadj(short *min_score_adj)
+{
+	int ret = VMPRESSURE_NO_ADJUST;
+
+	if (!enable_adaptive_lmk)
+		return 0;
+
+	if (atomic_read(&shift_adj) &&
+		(*min_score_adj > adj_max_shift)) {
+		if (*min_score_adj == OOM_SCORE_ADJ_MAX + 1)
+			ret = VMPRESSURE_ADJUST_ENCROACH;
+		else
+			ret = VMPRESSURE_ADJUST_NORMAL;
+		*min_score_adj = adj_max_shift;
+	}
+	atomic_set(&shift_adj, 0);
+
+	return ret;
+}
+
+static int lmk_vmpressure_notifier(struct notifier_block *nb,
+			unsigned long action, void *data)
+{
+	int other_free, other_file;
+	unsigned long pressure = action;
+	int array_size = ARRAY_SIZE(lowmem_adj);
+
+	if (!enable_adaptive_lmk)
+		return 0;
+
+	if (pressure >= 95) {
+		other_file = global_page_state(NR_FILE_PAGES) -
+			global_page_state(NR_SHMEM) -
+			total_swapcache_pages;
+		other_free = global_page_state(NR_FREE_PAGES);
+
+		atomic_set(&shift_adj, 1);
+		trace_almk_vmpressure(pressure, other_free, other_file);
+	} else if (pressure >= 90) {
+		if (lowmem_adj_size < array_size)
+			array_size = lowmem_adj_size;
+		if (lowmem_minfree_size < array_size)
+			array_size = lowmem_minfree_size;
+
+		other_file = global_page_state(NR_FILE_PAGES) -
+			global_page_state(NR_SHMEM) -
+			total_swapcache_pages;
+
+		other_free = global_page_state(NR_FREE_PAGES);
+
+		if ((other_free < lowmem_minfree[array_size - 1]) &&
+			(other_file < vmpressure_file_min)) {
+				atomic_set(&shift_adj, 1);
+				trace_almk_vmpressure(pressure, other_free,
+					other_file);
+		}
+	}
+
+	return 0;
+}
+
+static struct notifier_block lmk_vmpr_nb = {
+	.notifier_call = lmk_vmpressure_notifier,
+};
 
 static int test_task_flag(struct task_struct *p, int flag)
 {
-	struct task_struct *t = p;
+	struct task_struct *t;
 
-	do {
+	for_each_thread(p, t) {
 		task_lock(t);
 		if (test_tsk_thread_flag(t, flag)) {
 			task_unlock(t);
 			return 1;
 		}
 		task_unlock(t);
-	} while_each_thread(p, t);
+	}
 
 	return 0;
 }
-
-static DEFINE_MUTEX(scan_mutex);
 
 int can_use_cma_pages(gfp_t gfp_mask)
 {
@@ -115,6 +285,7 @@ int can_use_cma_pages(gfp_t gfp_mask)
 	return can_use;
 }
 
+
 void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 					int *other_free, int *other_file,
 					int use_cma_pages)
@@ -124,9 +295,8 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 	int zone_idx;
 
 	for_each_zone_zonelist(zone, zoneref, zonelist, MAX_NR_ZONES) {
-		zone_idx = zonelist_zone_idx(zoneref);
-		if (zone_idx == ZONE_MOVABLE) {
-			if (!use_cma_pages)
+		if ((zone_idx = zonelist_zone_idx(zoneref)) == ZONE_MOVABLE) {
+			if (!use_cma_pages && other_free)
 				*other_free -=
 				    zone_page_state(zone, NR_FREE_CMA_PAGES);
 			continue;
@@ -139,9 +309,11 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 			if (other_file != NULL)
 				*other_file -= zone_page_state(zone,
 							       NR_FILE_PAGES)
-					      - zone_page_state(zone, NR_SHMEM);
+					- zone_page_state(zone, NR_SHMEM)
+					- zone_page_state(zone, NR_SWAPCACHE);
 		} else if (zone_idx < classzone_idx) {
-			if (zone_watermark_ok(zone, 0, 0, classzone_idx, 0)) {
+			if (zone_watermark_ok(zone, 0, 0, classzone_idx, 0) &&
+			    other_free) {
 				if (!use_cma_pages) {
 					*other_free -= min(
 					  zone->lowmem_reserve[classzone_idx] +
@@ -154,8 +326,9 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 					  zone->lowmem_reserve[classzone_idx];
 				}
 			} else {
-				*other_free -=
-					   zone_page_state(zone, NR_FREE_PAGES);
+				if (other_free)
+					*other_free -=
+					  zone_page_state(zone, NR_FREE_PAGES);
 			}
 		}
 	}
@@ -225,16 +398,21 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 	}
 }
 
+static DEFINE_MUTEX(scan_mutex);
+
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
-	struct task_struct *selected = NULL;
+	struct task_struct *selected[MANAGED_PROCESS_TYPES] = {NULL};
 	int rem = 0;
 	int tasksize;
 	int i;
-	int min_score_adj = OOM_SCORE_ADJ_MAX + 1;
-	int selected_tasksize = 0;
-	int selected_oom_score_adj;
+	int ret = 0;
+	short min_score_adj = OOM_SCORE_ADJ_MAX + 1;
+	int minfree = 0;
+	enum lowmem_process_type proc_type = KILLABLE_PROCESS;
+	int selected_tasksize[MANAGED_PROCESS_TYPES] = {0};
+	int selected_oom_score_adj[MANAGED_PROCESS_TYPES];
 	int array_size = ARRAY_SIZE(lowmem_adj);
 	int other_free;
 	int other_file;
@@ -246,8 +424,14 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	}
 
 	other_free = global_page_state(NR_FREE_PAGES);
-	other_file = global_page_state(NR_FILE_PAGES) -
-						global_page_state(NR_SHMEM);
+
+	if (global_page_state(NR_SHMEM) + total_swapcache_pages <
+		global_page_state(NR_FILE_PAGES))
+		other_file = global_page_state(NR_FILE_PAGES) -
+						global_page_state(NR_SHMEM) -
+						total_swapcache_pages;
+	else
+		other_file = 0;
 
 	tune_lmk_param(&other_free, &other_file, sc);
 
@@ -256,16 +440,19 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	if (lowmem_minfree_size < array_size)
 		array_size = lowmem_minfree_size;
 	for (i = 0; i < array_size; i++) {
-		if (other_free < lowmem_minfree[i] &&
-		    other_file < lowmem_minfree[i]) {
+		minfree = lowmem_minfree[i];
+		if (other_free < minfree && other_file < minfree) {
 			min_score_adj = lowmem_adj[i];
 			break;
 		}
 	}
-	if (nr_to_scan > 0)
-		lowmem_print(3, "lowmem_shrink %lu, %x, ofree %d %d, ma %d\n",
+	if (nr_to_scan > 0) {
+		ret = adjust_minadj(&min_score_adj);
+		lowmem_print(3, "lowmem_shrink %lu, %x, ofree %d %d, ma %hd\n",
 				nr_to_scan, sc->gfp_mask, other_free,
 				other_file, min_score_adj);
+	}
+
 	rem = global_page_state(NR_ACTIVE_ANON) +
 		global_page_state(NR_ACTIVE_FILE) +
 		global_page_state(NR_INACTIVE_ANON) +
@@ -277,9 +464,16 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		if (nr_to_scan > 0)
 			mutex_unlock(&scan_mutex);
 
+		if ((min_score_adj == OOM_SCORE_ADJ_MAX + 1) &&
+			(nr_to_scan > 0))
+			trace_almk_shrink(0, ret, other_free, other_file, 0);
+
 		return rem;
 	}
-	selected_oom_score_adj = min_score_adj;
+
+	/* Set the initial oom_score_adj for each managed process type */
+	for (proc_type = KILLABLE_PROCESS; proc_type < MANAGED_PROCESS_TYPES; proc_type++)
+		selected_oom_score_adj[proc_type] = min_score_adj;
 
 	rcu_read_lock();
 	for_each_process(tsk) {
@@ -316,32 +510,105 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		task_unlock(p);
 		if (tasksize <= 0)
 			continue;
-		if (selected) {
-			if (oom_score_adj < selected_oom_score_adj)
+
+		/* Initially consider the process as killable */
+		proc_type = KILLABLE_PROCESS;
+
+#ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER_DO_NOT_KILL_PROCESS
+		/* Check if the process name is contained inside the process to be preserved lists */
+		if (is_in_donotkill_proc_list(p->comm)) {
+			/* This user process must be preserved from killing */
+			proc_type = DO_NOT_KILL_PROCESS;
+			lowmem_print(2, "The process '%s' is inside the donotkill_proc_names", p->comm);
+		} else if (is_in_donotkill_sysproc_list(p->comm)) {
+			/* This system process must be preserved from killing */
+			proc_type = DO_NOT_KILL_SYSTEM_PROCESS;
+			lowmem_print(2, "The process '%s' is inside the donotkill_sysproc_names", p->comm);
+		}
+#endif
+
+		if (selected[proc_type]) {
+			if (oom_score_adj < selected_oom_score_adj[proc_type])
 				continue;
-			if (oom_score_adj == selected_oom_score_adj &&
-			    tasksize <= selected_tasksize)
+			if (oom_score_adj == selected_oom_score_adj[proc_type] &&
+			    tasksize <= selected_tasksize[proc_type])
 				continue;
 		}
-		selected = p;
-		selected_tasksize = tasksize;
-		selected_oom_score_adj = oom_score_adj;
-		lowmem_print(2, "select %d (%s), adj %d, size %d, to kill\n",
-			     p->pid, p->comm, oom_score_adj, tasksize);
+		selected[proc_type] = p;
+		selected_tasksize[proc_type] = tasksize;
+		selected_oom_score_adj[proc_type] = oom_score_adj;
+		lowmem_print(3, "select '%s' (%d), adj %hd, size %d, to kill\n",
+			     p->comm, p->pid, oom_score_adj, tasksize);
 	}
-	if (selected) {
-		lowmem_print(1, "send sigkill to %d (%s), adj %d, size %d\n",
-			     selected->pid, selected->comm,
-			     selected_oom_score_adj, selected_tasksize);
-		lowmem_deathpending_timeout = jiffies + HZ;
-		send_sig(SIGKILL, selected, 0);
-		set_tsk_thread_flag(selected, TIF_MEMDIE);
-		rem -= selected_tasksize;
+
+	/* For each managed process type check if a process to be killed has been found:
+	 * - check first if a standard killable process has been found, if so kill it
+	 * - if there is no killable process, then check if a user process has been found,
+	 *   if so kill it to prevent system slowdowns, hangs, etc.
+	 * - if there is no killable and user process, then check if a system process has been found,
+	 *   if so kill it to prevent system slowdowns, hangs, etc. */
+	for (proc_type = KILLABLE_PROCESS; proc_type < MANAGED_PROCESS_TYPES; proc_type++) {
+		if (selected[proc_type]) {
+			lowmem_print(1, "Killing '%s' (%d), adj %d,\n" \
+					"   to free %ldkB on behalf of '%s' (%d) because\n" \
+					"   cache %ldkB is below limit %ldkB for oom_score_adj %d\n" \
+					"   Free memory is %ldkB above reserved.\n" \
+					"   Free CMA is %ldkB\n" \
+					"   Total reserve is %ldkB\n" \
+					"   Total free pages is %ldkB\n" \
+					"   Total file cache is %ldkB\n" \
+					"   Slab Reclaimable is %ldkB\n" \
+					"   Slab UnReclaimable is %ldkB\n" \
+					"   Total Slab is %ldkB\n" \
+					"   GFP mask is 0x%x\n",
+					selected[proc_type]->comm, selected[proc_type]->pid,
+					selected_oom_score_adj[proc_type],
+					selected_tasksize[proc_type] * (long)(PAGE_SIZE / 1024),
+					current->comm, current->pid,
+					other_file * (long)(PAGE_SIZE / 1024),
+					minfree * (long)(PAGE_SIZE / 1024),
+					min_score_adj,
+					other_free * (long)(PAGE_SIZE / 1024),
+					global_page_state(NR_FREE_CMA_PAGES) *
+					(long)(PAGE_SIZE / 1024),
+					totalreserve_pages * (long)(PAGE_SIZE / 1024),
+					global_page_state(NR_FREE_PAGES) *
+					(long)(PAGE_SIZE / 1024),
+					global_page_state(NR_FILE_PAGES) *
+					(long)(PAGE_SIZE / 1024),
+					global_page_state(NR_SLAB_RECLAIMABLE) *
+					(long)(PAGE_SIZE / 1024),
+					global_page_state(NR_SLAB_UNRECLAIMABLE) *
+					(long)(PAGE_SIZE / 1024),
+					global_page_state(NR_SLAB_RECLAIMABLE) *
+					(long)(PAGE_SIZE / 1024) +
+					global_page_state(NR_SLAB_UNRECLAIMABLE) *
+					(long)(PAGE_SIZE / 1024),
+					sc->gfp_mask);
+
+			if (lowmem_debug_level >= 2 && selected_oom_score_adj[proc_type] == 0) {
+				show_mem(SHOW_MEM_FILTER_NODES);
+				dump_tasks(NULL, NULL);
+				show_mem_call_notifiers();
+			}
+
+			lowmem_deathpending_timeout = jiffies + HZ;
+			send_sig(SIGKILL, selected[proc_type], 0);
+			set_tsk_thread_flag(selected[proc_type], TIF_MEMDIE);
+			rem -= selected_tasksize[proc_type];
+			rcu_read_unlock();
+			/* give the system time to free up the memory */
+			msleep_interruptible(20);
+			trace_almk_shrink(selected_tasksize[proc_type], ret,
+				other_free, other_file, selected_oom_score_adj[proc_type]);
+			break;
+		}
+	}
+
+	if (proc_type == MANAGED_PROCESS_TYPES && !selected[proc_type - 1]) {
+		trace_almk_shrink(1, ret, other_free, other_file, 0);
 		rcu_read_unlock();
-		/* give the system time to free up the memory */
-		msleep_interruptible(20);
-	} else
-		rcu_read_unlock();
+	}
 
 	lowmem_print(4, "lowmem_shrink %lu, %x, return %d\n",
 		     nr_to_scan, sc->gfp_mask, rem);
@@ -357,6 +624,7 @@ static struct shrinker lowmem_shrinker = {
 static int __init lowmem_init(void)
 {
 	register_shrinker(&lowmem_shrinker);
+	vmpressure_notifier_register(&lmk_vmpr_nb);
 	return 0;
 }
 
@@ -457,6 +725,14 @@ module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,
 			 S_IRUGO | S_IWUSR);
 module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
 module_param_named(lmk_fast_run, lmk_fast_run, int, S_IRUGO | S_IWUSR);
+#ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER_DO_NOT_KILL_PROCESS
+module_param_named(donotkill_proc, donotkill_proc.enabled, uint, S_IRUGO | S_IWUSR);
+module_param_array_named(donotkill_proc_names, donotkill_proc.names, charp,
+			 &donotkill_proc.names_count, S_IRUGO | S_IWUSR);
+module_param_named(donotkill_sysproc, donotkill_sysproc.enabled, uint, S_IRUGO | S_IWUSR);
+module_param_array_named(donotkill_sysproc_names, donotkill_sysproc.names, charp,
+			 &donotkill_sysproc.names_count, S_IRUGO | S_IWUSR);
+#endif
 
 module_init(lowmem_init);
 module_exit(lowmem_exit);

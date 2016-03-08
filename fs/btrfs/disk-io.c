@@ -3210,8 +3210,8 @@ void btrfs_btree_balance_dirty(struct btrfs_root *root, unsigned long nr)
 	num_dirty = root->fs_info->dirty_metadata_bytes;
 
 	if (num_dirty > thresh) {
-		balance_dirty_pages_ratelimited_nr(
-				   root->fs_info->btree_inode->i_mapping, 1);
+		balance_dirty_pages_ratelimited(
+				   root->fs_info->btree_inode->i_mapping);
 	}
 	return;
 }
@@ -3231,8 +3231,8 @@ void __btrfs_btree_balance_dirty(struct btrfs_root *root, unsigned long nr)
 	num_dirty = root->fs_info->dirty_metadata_bytes;
 
 	if (num_dirty > thresh) {
-		balance_dirty_pages_ratelimited_nr(
-				   root->fs_info->btree_inode->i_mapping, 1);
+		balance_dirty_pages_ratelimited(
+				   root->fs_info->btree_inode->i_mapping);
 	}
 	return;
 }
@@ -3555,12 +3555,6 @@ static int btrfs_destroy_pinned_extent(struct btrfs_root *root,
 					    EXTENT_DIRTY);
 		if (ret)
 			break;
-
-		/* opt_discard */
-		if (btrfs_test_opt(root, DISCARD))
-			ret = btrfs_error_discard_extent(root, start,
-							 end + 1 - start,
-							 NULL);
 
 		clear_extent_dirty(unpin, start, end, GFP_NOFS);
 		btrfs_error_unpin_extent_range(root, start, end);

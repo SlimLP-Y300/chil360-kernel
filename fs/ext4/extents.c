@@ -320,7 +320,7 @@ static int ext4_valid_extent(struct inode *inode, struct ext4_extent *ext)
 	ext4_lblk_t lblock = le32_to_cpu(ext->ee_block);
 	ext4_lblk_t last = lblock + len - 1;
 
-	if (lblock > last)
+	if (len == 0 || lblock > last)
 		return 0;
 	return ext4_data_block_valid(EXT4_SB(inode->i_sb), block, len);
 }
@@ -1134,7 +1134,7 @@ static int ext4_ext_grow_indepth(handle_t *handle, struct inode *inode,
 		  le32_to_cpu(EXT_FIRST_INDEX(neh)->ei_block),
 		  ext4_idx_pblock(EXT_FIRST_INDEX(neh)));
 
-	neh->eh_depth = cpu_to_le16(le16_to_cpu(neh->eh_depth) + 1);
+	le16_add_cpu(&neh->eh_depth, 1);
 	ext4_mark_inode_dirty(handle, inode);
 out:
 	brelse(bh);
@@ -2049,13 +2049,10 @@ ext4_ext_put_gap_in_cache(struct inode *inode, struct ext4_ext_path *path,
 }
 
 /*
- * ext4_ext_check_cache()
+ * ext4_ext_in_cache()
  * Checks to see if the given block is in the cache.
  * If it is, the cached extent is stored in the given
- * cache extent pointer.  If the cached extent is a hole,
- * this routine should be used instead of
- * ext4_ext_in_cache if the calling function needs to
- * know the size of the hole.
+ * cache extent pointer.
  *
  * @inode: The files inode
  * @block: The block to look for in the cache
@@ -2064,8 +2061,10 @@ ext4_ext_put_gap_in_cache(struct inode *inode, struct ext4_ext_path *path,
  *
  * Return 0 if cache is invalid; 1 if the cache is valid
  */
-static int ext4_ext_check_cache(struct inode *inode, ext4_lblk_t block,
-	struct ext4_ext_cache *ex){
+static int
+ext4_ext_in_cache(struct inode *inode, ext4_lblk_t block,
+		  struct ext4_extent *ex)
+{
 	struct ext4_ext_cache *cex;
 	struct ext4_sb_info *sbi;
 	int ret = 0;
@@ -2082,7 +2081,9 @@ static int ext4_ext_check_cache(struct inode *inode, ext4_lblk_t block,
 		goto errout;
 
 	if (in_range(block, cex->ec_block, cex->ec_len)) {
-		memcpy(ex, cex, sizeof(struct ext4_ext_cache));
+		ex->ee_block = cpu_to_le32(cex->ec_block);
+		ext4_ext_store_pblock(ex, cex->ec_start);
+		ex->ee_len = cpu_to_le16(cex->ec_len);
 		ext_debug("%u cached by %u:%u:%llu\n",
 				block,
 				cex->ec_block, cex->ec_len, cex->ec_start);
@@ -2093,37 +2094,6 @@ errout:
 	spin_unlock(&EXT4_I(inode)->i_block_reservation_lock);
 	return ret;
 }
-
-/*
- * ext4_ext_in_cache()
- * Checks to see if the given block is in the cache.
- * If it is, the cached extent is stored in the given
- * extent pointer.
- *
- * @inode: The files inode
- * @block: The block to look for in the cache
- * @ex:    Pointer where the cached extent will be stored
- *         if it contains block
- *
- * Return 0 if cache is invalid; 1 if the cache is valid
- */
-static int
-ext4_ext_in_cache(struct inode *inode, ext4_lblk_t block,
-			struct ext4_extent *ex)
-{
-	struct ext4_ext_cache cex;
-	int ret = 0;
-
-	if (ext4_ext_check_cache(inode, block, &cex)) {
-		ex->ee_block = cpu_to_le32(cex.ec_block);
-		ext4_ext_store_pblock(ex, cex.ec_start);
-		ex->ee_len = cpu_to_le16(cex.ec_len);
-		ret = 1;
-	}
-
-	return ret;
-}
-
 
 /*
  * ext4_ext_rm_idx:
@@ -4368,13 +4338,6 @@ long ext4_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
 	struct ext4_map_blocks map;
 	unsigned int credits, blkbits = inode->i_blkbits;
 
-	/*
-	 * currently supporting (pre)allocate mode for extent-based
-	 * files _only_
-	 */
-	if (!(ext4_test_inode_flag(inode, EXT4_INODE_EXTENTS)))
-		return -EOPNOTSUPP;
-
 	/* Return error if mode is not supported */
 	if (mode & ~(FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE))
 		return -EOPNOTSUPP;
@@ -4395,6 +4358,15 @@ long ext4_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
 	 */
 	credits = ext4_chunk_trans_blocks(inode, max_blocks);
 	mutex_lock(&inode->i_mutex);
+
+	/*
+	 * We only support preallocation for extent-based files only
+	 */
+	if (!(ext4_test_inode_flag(inode, EXT4_INODE_EXTENTS))) {
+		mutex_unlock(&inode->i_mutex);
+		return -EOPNOTSUPP;
+	}
+
 	ret = inode_newsize_ok(inode, (len + offset));
 	if (ret) {
 		mutex_unlock(&inode->i_mutex);

@@ -23,6 +23,7 @@
 #include <linux/workqueue.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
+#include <linux/mm.h>
 
 #include "ext4_jbd2.h"
 #include "xattr.h"
@@ -71,8 +72,6 @@ void ext4_free_io_end(ext4_io_end_t *io)
 	int i;
 
 	BUG_ON(!io);
-	if (io->page)
-		put_page(io->page);
 	for (i = 0; i < io->num_io_pages; i++)
 		put_io_page(io->pages[i]);
 	io->num_io_pages = 0;
@@ -320,14 +319,6 @@ static int io_submit_add_bh(struct ext4_io_submit *io,
 		unmap_underlying_metadata(bh->b_bdev, bh->b_blocknr);
 	}
 
-	if (!buffer_mapped(bh) || buffer_delay(bh)) {
-		if (!buffer_mapped(bh))
-			clear_buffer_dirty(bh);
-		if (io->io_bio)
-			ext4_io_submit(io);
-		return 0;
-	}
-
 	if (io->io_bio && bh->b_blocknr != io->io_next_block) {
 submit_and_retry:
 		ext4_io_submit(io);
@@ -374,7 +365,7 @@ int ext4_bio_write_page(struct ext4_io_submit *io,
 
 	io_page = kmem_cache_alloc(io_page_cachep, GFP_NOFS);
 	if (!io_page) {
-		set_page_dirty(page);
+		redirty_page_for_writepage(wbc, page);
 		unlock_page(page);
 		return -ENOMEM;
 	}
@@ -406,7 +397,15 @@ int ext4_bio_write_page(struct ext4_io_submit *io,
 			set_buffer_uptodate(bh);
 			continue;
 		}
-		clear_buffer_dirty(bh);
+		if (!buffer_dirty(bh) || buffer_delay(bh) ||
+		    !buffer_mapped(bh) || buffer_unwritten(bh)) {
+			/* A hole? We can safely clear the dirty bit */
+			if (!buffer_mapped(bh))
+				clear_buffer_dirty(bh);
+			if (io->io_bio)
+				ext4_io_submit(io);
+			continue;
+		}
 		ret = io_submit_add_bh(io, io_page, inode, wbc, bh);
 		if (ret) {
 			/*
@@ -414,9 +413,10 @@ int ext4_bio_write_page(struct ext4_io_submit *io,
 			 * we can do but mark the page as dirty, and
 			 * better luck next time.
 			 */
-			set_page_dirty(page);
+			redirty_page_for_writepage(wbc, page);
 			break;
 		}
+		clear_buffer_dirty(bh);
 	}
 	unlock_page(page);
 	/*
