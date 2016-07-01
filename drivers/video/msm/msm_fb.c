@@ -998,7 +998,8 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 
 /* Remove qcom backlight mechanism,user our own */
 #ifndef CONFIG_HUAWEI_KERNEL
-	if (!mfd->panel_power_on || !bl_updated) {
+	/*remove the bl_updated for the backlight in recovery can't light up*/
+	if (!mfd->panel_power_on) {
 		unset_bl_level = bkl_lvl;
 		return;
 	} else {
